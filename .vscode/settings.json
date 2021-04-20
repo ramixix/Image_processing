@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "img_operations.h": "c",
+        "stdio.h": "c",
+        "pixels.h": "c"
+    }
+}
