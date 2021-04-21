@@ -29,5 +29,6 @@ void convert_to_binary_kmeans(struct Image img);
 void change(int bigger_lable, int less_label, int width, int hieght, uint8_t *matrix);
 void labeling(struct Image *img);
 int Reset_changes(char *path, struct Image* img);
+void handel_collision(struct collision collided, struct pixel *pixes, int height, int width);
 
 #endif

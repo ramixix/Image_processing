@@ -9,6 +9,7 @@
 #include <math.h>
 
 
+
 #include "../Includes/img_operations.h"
 #include "../Includes/pixels.h"
 #include "../Includes/utils.h"
@@ -172,19 +173,19 @@ void convert_to_gray(struct Image *img){
         error("Width and height values are zero.('Conver_to_gray' function)\n");
         exit(-1);
     }
-    
     uint8_t byte_per_pixel = 3;
     uint32_t padding  = (4 - (img->width*byte_per_pixel) % 4) % 4;
-
+    int width = img->width;
+    int height = img->height;
     printf("\n[+] padding : %d\n", padding);
-    for(int h=0; h < img->height; h++){
-        for(int w=0; w < img->width; w++){
-            rgb_to_gray(img->pixels + h*img->width + w);
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            rgb_to_gray(img->pixels + h*width + w);
         }
         if(padding != 0){
             int i = 0;
             while(padding !=0 ){
-                rgb_to_gray(img->pixels + h * img->width + img->width + i);
+                rgb_to_gray(img->pixels + h*width + width+i);
                 i++;
                 padding -=1;
             }
@@ -194,7 +195,6 @@ void convert_to_gray(struct Image *img){
     printf("*******************************************************************************\n");
     printf("\t\t\t Image Converted To Gray successfully\t\t\t\t\n");
     printf("*******************************************************************************\n");
-   
 }
 
 
@@ -227,7 +227,7 @@ uint32_t *get_histogram(struct Image img){
             for(int h=0; h < img.height; h++){
                 for(int w=0; w < img.width; w++){
                     // when image is rgb then we add the red, green and blue values so total we would have values between 0 < value < 768
-                    uint8_t pixel_value = get_total_pixel_value(img.pixels + h*img.width + w);
+                    uint8_t pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
                     histogram_arr[pixel_value]++;
                 }
             }
@@ -290,16 +290,16 @@ void convert_to_binary_kmeans(struct Image img){
     for(int h=0; h < img.height; h++){
         for(int w=0; w < img.width; w++){
             if(iteration == 256){
-                pixel_value = get_total_pixel_value(img.pixels + h*img.width + w) / 3 ;
+                pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]) / 3 ;
             }
             else{
-                pixel_value = get_total_pixel_value(img.pixels + h*img.width + w);
+                pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
             }
             if( distant(pixel_value, k1) < distant(pixel_value, k2)){
-                set_pixel(img.pixels + h*img.width + w, 0, 0, 0);
+                set_pixel_value(img.pixels + h*img.width + w, 0, 0, 0);
             }
             else{
-                set_pixel(img.pixels + h*img.width + w, 255, 255, 255);
+                set_pixel_value(img.pixels + h*img.width + w, 255, 255, 255);
             }
         }
     }
@@ -308,21 +308,47 @@ void convert_to_binary_kmeans(struct Image img){
 
 
 
+void handel_collision(struct collision collided, struct pixel *pixes, int height, int width){
+    struct pixel left, up;
+    copy_pixel_value(&left, collided.left_pix);
+    copy_pixel_value(&up, collided.up_pix);
+    uint16_t left_value = get_total_pixel_value(left);
+    uint16_t up_value = get_total_pixel_value(up);
+    struct pixel throw;
+    struct pixel substitute;
+    if(left_value > up_value){
+        copy_pixel_value(&throw, &left);
+        copy_pixel_value(&substitute, &up);
+    }
+    copy_pixel_value(&throw, &up);
+    copy_pixel_value(&substitute, &left);
+
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(compare_two_pixels(pixes[h*width + w], throw)){
+                copy_pixel_value(pixes + h*width + w, &substitute);
+            }
+        }
+    }
+}
+
 
 
 void labeling(struct Image *img){
     int width = img->width;
     int height = img->height;
     struct pixel *pixes = img->pixels;
-
+    int collision_count = 0;
+    int collision_arr_size = 100;
+    struct collision *collisions = (struct collision *)malloc(sizeof(struct collision) * collision_arr_size); // initial size is 10, if there be more than 10 collision then we will reallocate more memory later.
     for(int h=0; h< height; h++){
         for(int w=0; w < width ; w++){
-            if( get_total_pixel_value(pixes + h*width + w) != 0){
+            if(not_background(pixes[h*width + w])){
                 if( w==0 ){
                     set_random_rgb(pixes + h*width );
                 }
-                else if( get_total_pixel_value(pixes + h*width + w-1) != 0){
-                    copy_pix_value(pixes + h*width + w-1, pixes + h*width + w);
+                else if(not_background(pixes[h*width + w-1])){
+                    copy_pixel_value(pixes + h*width + w, pixes + h*width + w-1);
                 }
                 else{
                     set_random_rgb(pixes + h*width + w );
@@ -331,34 +357,50 @@ void labeling(struct Image *img){
         }
     }
 
-    printf("8888\n");
     for(int h=1; h < height; h++){
         for(int w=0; w < width; w++){
-            if( get_total_pixel_value(pixes + h*width + w) != 0 ){
+            if(not_background(pixes[h*width + w])){
                 if( w != 0){
-                    if(get_total_pixel_value(pixes + (h-1)*width +w) != 0 && get_total_pixel_value(pixes + h*width + w-1) != 0){
-                        if( check_pixs_value(pixes + (h-1)*width + w, pixes + h*width + w-1) ){
-                            copy_pix_value(pixes + h*width + w-1, pixes + h*width + w);
+                    if(not_background(pixes[(h-1)*width +w]) && not_background(pixes[h*width + w-1]) ){
+                        if(compare_two_pixels(pixes[(h-1)*width + w], pixes[h*width + w-1])){
+                            copy_pixel_value(pixes + h*width + w , pixes + (h-1)*width + w);
                         }
                         else{
-                            set_pixel(pixes + h*width + w, 255, 255, 255);
+                            // check if the memory allocated for collision is enogh
+                            if(collision_count >= collision_arr_size){
+                                printf("Allocating more memory for collisions array...\n");
+                                int tmp_size = collision_arr_size * 8; // allocate 8 times more momery 
+                                collision_arr_size = tmp_size;
+                                collisions = (struct collision*)realloc(collisions, sizeof(struct collision) * collision_arr_size);
+                            }
+                            // specifying the left and up pixel of the pixel that collision occure
+                            collisions[collision_count].left_pix = pixes + h*width + w-1;
+                            collisions[collision_count].up_pix = pixes + (h-1)*width + w;
+                            // set the collided pixel value to one pixel left
+                            copy_pixel_value(pixes + h*width + w, pixes + h*width + w-1);
+                            handel_collision(collisions[collision_count] , pixes, height, width);
+                            collision_count += 1;
                         }
                     }
-                    else if(get_total_pixel_value(pixes + (h-1)*width +w) != 0){
-                        copy_pix_value(pixes + (h-1)*width + w, pixes + h*width + w);
+                    else if(not_background(pixes[(h-1)*width + w])){
+                        copy_pixel_value(pixes + h*width + w , pixes + (h-1)*width + w);
                     }
-                    else if(get_total_pixel_value(pixes + h*width + w-1) != 0){
-                        copy_pix_value(pixes + h*width + w-1, pixes + h*width + w);
+                    else if(not_background(pixes[h*width + w-1])){
+                        copy_pixel_value(pixes + h*width + w , pixes + h*width + w-1);
                     }
                 }
                 else{
-                    if(get_total_pixel_value(pixes + (h-1)*width ) != 0){
-                        copy_pix_value(pixes + (h-1)*width, pixes + h*width);
+                    if(not_background( pixes[(h-1)*width])){
+                        copy_pixel_value(pixes + h*width , pixes + (h-1)*width);
                     }
                 }
             }
         }
     }
 
-   
+    printf("collision count %d\n", collision_count);
+    // for(int item=0; item < collision_count; item++){
+    //     handel_collision(collisions[item] , pixes, height, width);
+    // }
+    free(collisions);
 }

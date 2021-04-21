@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "Includes/img_operations.h"
 #include "Includes/utils.h"
@@ -9,7 +10,8 @@ int main(int arg_count, char *arg_list[]){
     char image_path[200];
     struct Image img;
     int is_valid;
-    int choise=0; 
+    int choise=0;
+    srand(time(NULL)); 
 
     if (arg_count > 1){
         strncpy(image_path, arg_list[1], strlen(arg_list[1]));
