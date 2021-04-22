@@ -13,6 +13,7 @@
 #include "../Includes/img_operations.h"
 #include "../Includes/pixels.h"
 #include "../Includes/utils.h"
+#include "../Includes/linked_list.h"
 
 
 int Reset_changes(char *path, struct Image* img){
@@ -199,41 +200,41 @@ void convert_to_gray(struct Image *img){
 
 
 uint32_t *get_histogram(struct Image img){
-    uint32_t *histogram_arr;
-    int histogram_array_size;
+    uint32_t *obj_array;
+    int obj_arrayay_size;
     // If image is grayscal
     if(img.is_gray == 1){
-        histogram_array_size = 256;
-        histogram_arr = (uint32_t *)malloc(sizeof(uint32_t) * histogram_array_size);
+        obj_arrayay_size = 256;
+        obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_arrayay_size);
         // set all values of histogram array to 0 before any operation
-        memset(histogram_arr, 0, sizeof(uint32_t)*histogram_array_size);
-        if( histogram_arr != NULL){
+        memset(obj_array, 0, sizeof(uint32_t)*obj_arrayay_size);
+        if( obj_array != NULL){
             for(int h=0; h < img.height; h++){
                 for(int w=0; w < img.width; w++){
                     // if image is grayscale then all rgb values are the same so take one, we choose green here.
                     uint8_t pixel_value = (img.pixels + h*img.width + w)->red;
-                    histogram_arr[pixel_value]++;
+                    obj_array[pixel_value]++;
                 }
             }
         }
     }
     // If image is rgb
     else{
-        histogram_array_size = 768; // red + green + blue = 256+256+256
-        histogram_arr = (uint32_t *)malloc(sizeof(uint32_t) * histogram_array_size);
+        obj_arrayay_size = 768; // red + green + blue = 256+256+256
+        obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_arrayay_size);
         // set all values of histogram array to 0 before any operation
-        memset(histogram_arr, 0, sizeof(uint32_t)*histogram_array_size);
-        if( histogram_arr != NULL){
+        memset(obj_array, 0, sizeof(uint32_t)*obj_arrayay_size);
+        if( obj_array != NULL){
             for(int h=0; h < img.height; h++){
                 for(int w=0; w < img.width; w++){
                     // when image is rgb then we add the red, green and blue values so total we would have values between 0 < value < 768
                     uint8_t pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
-                    histogram_arr[pixel_value]++;
+                    obj_array[pixel_value]++;
                 }
             }
         }
     }
-    return histogram_arr;
+    return obj_array;
 }
 
 
@@ -257,16 +258,16 @@ void convert_to_binary_kmeans(struct Image img){
             iteration = 768; // 256+256+256
         }
     }
-    uint32_t *histogram_arr = get_histogram(img);
+    uint32_t *obj_array = get_histogram(img);
     uint8_t run = 1;
     while(run){
         for(int item=0; item < iteration; item++){
             if( distant(item, k1) < distant(item, k2) ){
-                dividend_k3 += item * histogram_arr[item];
-                divisor_k3 += histogram_arr[item];
+                dividend_k3 += item * obj_array[item];
+                divisor_k3 += obj_array[item];
             }else{
-                dividend_k4 += item * histogram_arr[item];
-                divisor_k4 += histogram_arr[item];
+                dividend_k4 += item * obj_array[item];
+                divisor_k4 += obj_array[item];
             }
         }
         k3 = (double)dividend_k3 / divisor_k3;
@@ -303,7 +304,7 @@ void convert_to_binary_kmeans(struct Image img){
             }
         }
     }
-    free(histogram_arr);
+    free(obj_array);
 }
 
 
@@ -356,7 +357,6 @@ void labeling(struct Image *img){
             }
         }
     }
-
     for(int h=1; h < height; h++){
         for(int w=0; w < width; w++){
             if(not_background(pixes[h*width + w])){
@@ -403,4 +403,123 @@ void labeling(struct Image *img){
     //     handel_collision(collisions[item] , pixes, height, width);
     // }
     free(collisions);
+}
+
+
+void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row){
+    struct pixel white_bound = { 255, 255, 255};
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( w >= min_column && w <= max_column && h >= min_row && h <= max_row){
+                if( w == min_column || w == max_column){
+                    copy_pixel_value(pixels + h*width + w, &white_bound);
+                }
+                if( h == min_row || h == max_row){
+                    copy_pixel_value(pixels + h*width + w, &white_bound);
+                }
+            }
+        }
+    }
+}
+
+int find_min_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int min_column = INT32_MAX;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( w < min_column){
+                    min_column = w;
+                } 
+            }
+        }
+    }
+    return min_column - 2;
+}
+
+int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int max_column = 0;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( w > max_column){
+                    max_column = w;
+                } 
+            }
+        }
+    }
+    return max_column + 2;
+}
+
+int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int min_row = INT32_MAX;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( h < min_row){
+                    min_row = h;
+                } 
+            }
+        }
+    }
+    return min_row - 2;
+}
+
+int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int max_row = 0;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( h > max_row){
+                    max_row = h;
+                } 
+            }
+        }
+    }
+    return max_row + 2;
+}
+
+
+void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int min_column = find_min_column(pixels, height, width, search_for_pixel);
+    int max_column = find_max_column(pixels, height, width, search_for_pixel);
+    int min_row = find_min_row(pixels, height, width, search_for_pixel);
+    int max_row = find_max_row(pixels, height, width, search_for_pixel);
+    draw_bounding_box(pixels, height, width, min_column, max_column, min_row, max_row);
+}
+
+
+void bounding_box(struct Image *img){
+    int height = img->height;
+    int width = img->width;
+    struct pixel_node *head = NULL;
+    extern int Number_of_Nodes;
+    // uint16_t obj_array_size = 1530;
+    // uint32_t *obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_array_size);
+    // set all values of histogram array to 0 before any operation
+    // memset(obj_array, 0, sizeof(uint32_t)*obj_array_size);
+    // if( obj_array != NULL){
+        for(int h=0; h < height; h++){
+            for(int w=0; w < width; w++){
+                if(not_background(img->pixels[h*width+w])){
+                    // struct pixel pix = img->pixels[h*width + w];
+                    // uint16_t pixel_value = get_total_pixel_value( img->pixels[h*width + w] );
+                    // obj_array[pixel_value]++;
+                    add_if_not_exists(&head, img->pixels[h*width+w]);
+                }
+            }
+        }
+    // }
+    printf("%d Objects found inside image\n", Number_of_Nodes);
+    
+    for(int i=0; i < Number_of_Nodes ; i++){
+        // if(obj_array[i] != 0){
+            // printf("i : %d, total value : %d\n", i, obj_array[i]);
+            struct pixel *search_for_pixel = get_node_pixel(head, i);
+            find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel);
+            
+        // }
+    }
+   
+    free_all(&head);
+    // free(obj_array);
 }

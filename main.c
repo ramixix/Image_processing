@@ -27,17 +27,18 @@ int main(int arg_count, char *arg_list[]){
 
     if(is_valid != -1){
         printf("\nImage has been Loaded What do you want to do with it?\n");
-        while(choise != 6){
+        while(choise != 7){
             printf("\n##############################-=[ Choose A Number ]=-##############################\n");
             printf("1 - Save It.\n");
             printf("2 - Convert To Gray.\n");
             printf("3 - Convert binary.\n");
             printf("4 - labeling\n");
-            printf("5 - Reset All Changes.\n");
-            printf("6 - Quit.\n");
+            printf("5 - bounding box\n");
+            printf("6 - Reset All Changes.\n");
+            printf("7 - Quit.\n");
             scanf("%d", &choise);
         
-            if(choise < 1 || choise > 6){
+            if(choise < 1 || choise > 7){
                 printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
             }
             else if(choise == 1){
@@ -55,7 +56,10 @@ int main(int arg_count, char *arg_list[]){
             else if(choise == 4){
             labeling(&img);
             }
-            else if( choise == 5){
+            else if(choise == 5){
+                bounding_box(&img);
+            }
+            else if( choise == 6){
                 printf("Trying to reset changes...\n");
                 int is_reset = Reset_changes(image_path, &img);
                 if(is_reset == -1){

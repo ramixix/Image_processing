@@ -47,18 +47,24 @@ int main(){
     //     printf("\n");
     // }
 
-    uint8_t a = 255, b=4, c=254, g=0;
- 
-    if(a==4){
-        if(c==4){
-            printf("a=2 ,c=3");
-        }else{
-             printf("a=2 , c!=3");
-        }
-       
-    }
-    else if(0==0){
-        printf("a=%d, b=%d, c=%d, g=%d", a,b,c,g);
-    }
+    int j =5;
+    int *i;
+    int *a;
+    a= &j;
+    i=a;
+        
+    printf("%x\n", i);
+    printf("%x\n", a);
+    printf("%d\n", *i);
+    printf("%d\n", *a);
+
+    int b=66;
+    a = &b;
+
+    printf("%x\n", i);
+    printf("%x\n", a);
+    printf("%d\n", *i);
+    printf("%d\n", *a);
+
     
 }
