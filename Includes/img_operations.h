@@ -37,5 +37,6 @@ int find_max_column(struct pixel *pixels, int height, int width, struct pixel se
 int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+void feature_extraction(struct Image *img);
 
 #endif

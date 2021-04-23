@@ -8,6 +8,7 @@
  
 int main(int arg_count, char *arg_list[]){
     char image_path[200];
+    char save_path[200];
     struct Image img;
     int is_valid;
     int choise=0;
@@ -27,24 +28,25 @@ int main(int arg_count, char *arg_list[]){
 
     if(is_valid != -1){
         printf("\nImage has been Loaded What do you want to do with it?\n");
-        while(choise != 7){
+        while(choise != 8){
             printf("\n##############################-=[ Choose A Number ]=-##############################\n");
             printf("1 - Save It.\n");
             printf("2 - Convert To Gray.\n");
-            printf("3 - Convert binary.\n");
-            printf("4 - labeling\n");
-            printf("5 - bounding box\n");
-            printf("6 - Reset All Changes.\n");
-            printf("7 - Quit.\n");
+            printf("3 - Convert Binary.\n");
+            printf("4 - Labeling\n");
+            printf("5 - Bounding Box\n");
+            printf("6 - Extract Featrues.\n");
+            printf("7 - Reset All Changes.\n");
+            printf("8 - Quit.\n");
             scanf("%d", &choise);
         
-            if(choise < 1 || choise > 7){
+            if(choise < 1 || choise > 8){
                 printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
             }
             else if(choise == 1){
                 printf("Where do you want to save the file?(give the absolute path): ");
-                scanf("%s", image_path);
-                Write_bmp(image_path, img);
+                scanf("%s", save_path);
+                Write_bmp(save_path, img);
                 
             }
             else if( choise == 2){
@@ -59,11 +61,14 @@ int main(int arg_count, char *arg_list[]){
             else if(choise == 5){
                 bounding_box(&img);
             }
-            else if( choise == 6){
+            else if(choise == 6){
+                feature_extraction(&img);
+            }
+            else if( choise == 7){
                 printf("Trying to reset changes...\n");
                 int is_reset = Reset_changes(image_path, &img);
                 if(is_reset == -1){
-                    error("Unable to Reset changes!!!\n");
+                    error("Unable to reset changes!!!\n");
                 }
                 else{
                     printf("Changes have been Reseted.\n");

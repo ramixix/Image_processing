@@ -14,6 +14,7 @@
 #include "../Includes/pixels.h"
 #include "../Includes/utils.h"
 #include "../Includes/linked_list.h"
+#include "../Includes/rst_moments.h"
 
 
 int Reset_changes(char *path, struct Image* img){
@@ -433,7 +434,7 @@ int find_min_column(struct pixel *pixels, int height, int width, struct pixel se
             }
         }
     }
-    return min_column - 2;
+    return min_column;
 }
 
 int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
@@ -447,7 +448,7 @@ int find_max_column(struct pixel *pixels, int height, int width, struct pixel se
             }
         }
     }
-    return max_column + 2;
+    return max_column;
 }
 
 int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
@@ -461,7 +462,7 @@ int find_min_row(struct pixel *pixels, int height, int width, struct pixel searc
             }
         }
     }
-    return min_row - 2;
+    return min_row;
 }
 
 int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
@@ -475,15 +476,15 @@ int find_max_row(struct pixel *pixels, int height, int width, struct pixel searc
             }
         }
     }
-    return max_row + 2;
+    return max_row;
 }
 
 
 void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
-    int min_column = find_min_column(pixels, height, width, search_for_pixel);
-    int max_column = find_max_column(pixels, height, width, search_for_pixel);
-    int min_row = find_min_row(pixels, height, width, search_for_pixel);
-    int max_row = find_max_row(pixels, height, width, search_for_pixel);
+    int min_column = find_min_column(pixels, height, width, search_for_pixel) - 2; // give 2 pixel space for every part of bounding box
+    int max_column = find_max_column(pixels, height, width, search_for_pixel) + 2;
+    int min_row = find_min_row(pixels, height, width, search_for_pixel) - 2;
+    int max_row = find_max_row(pixels, height, width, search_for_pixel) + 2;
     draw_bounding_box(pixels, height, width, min_column, max_column, min_row, max_row);
 }
 
@@ -493,33 +494,51 @@ void bounding_box(struct Image *img){
     int width = img->width;
     struct pixel_node *head = NULL;
     extern int Number_of_Nodes;
-    // uint16_t obj_array_size = 1530;
-    // uint32_t *obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_array_size);
-    // set all values of histogram array to 0 before any operation
-    // memset(obj_array, 0, sizeof(uint32_t)*obj_array_size);
-    // if( obj_array != NULL){
-        for(int h=0; h < height; h++){
-            for(int w=0; w < width; w++){
-                if(not_background(img->pixels[h*width+w])){
-                    // struct pixel pix = img->pixels[h*width + w];
-                    // uint16_t pixel_value = get_total_pixel_value( img->pixels[h*width + w] );
-                    // obj_array[pixel_value]++;
-                    add_if_not_exists(&head, img->pixels[h*width+w]);
-                }
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(img->pixels[h*width+w])){
+                add_if_not_exists(&head, img->pixels[h*width+w]);
             }
         }
-    // }
+    }
     printf("%d Objects found inside image\n", Number_of_Nodes);
-    
+    printf("It might take some time to draw bouding box. Please be patient.\n");
     for(int i=0; i < Number_of_Nodes ; i++){
-        // if(obj_array[i] != 0){
-            // printf("i : %d, total value : %d\n", i, obj_array[i]);
-            struct pixel *search_for_pixel = get_node_pixel(head, i);
-            find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel);
-            
-        // }
+        struct pixel *search_for_pixel = get_node_pixel(head, i);
+        find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel);
     }
    
     free_all(&head);
-    // free(obj_array);
+}
+
+
+void feature_extraction(struct Image *img){
+    int height = img->height;
+    int width = img->width;
+    struct pixel_node *head = NULL;
+    extern int Number_of_Nodes;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(img->pixels[h*width+w])){
+                add_if_not_exists(&head, img->pixels[h*width+w]);
+            }
+        }
+    }
+    printf("%d Objects found inside image\n", Number_of_Nodes);
+    printf("Featrue extraction might take some time to draw bouding box. Please be patient.\n");
+    struct Moments objs_moment[Number_of_Nodes];
+
+    for(int i=0; i < Number_of_Nodes ; i++){
+        struct pixel *search_for_pixel = get_node_pixel(head, i);
+        objs_moment[i].height = height;
+        objs_moment[i].width = width;
+        copy_pixel_value(&(objs_moment[i].search_pixel), search_for_pixel);
+        objs_moment[i].pixels_array = img->pixels;
+        calculate_invariant_moments(objs_moment+i);
+        printf("\n%d. object moments vlaue:\n", i);
+        print_final_moments(objs_moment+i);
+        printf("--------------------------------------------------------------------");
+    }
+   
+    free_all(&head);
 }
