@@ -132,3 +132,13 @@ void print_final_moments(struct Moments *obj){
         printf("\tPHI%d: %lf\n",item+1, obj->invariant_moments[item]);
     }
 }
+
+
+double average_invariant_moment(struct Moments *obj){
+    double average = 0;
+    for(int item=0; item < 7; item ++){
+        average += obj->invariant_moments[item];
+    }
+    average = average / 7;
+    return average;
+}

@@ -29,7 +29,7 @@ void *set_random_rgb(void *pix, int i ){
 }
 
 int main(){
-    // srand(time(NULL));
+    srand(time(NULL));
     // struct pixel pix[9];
     // for(int i=0; i < 9; i++){
     //     set_random_rgb(pix + i, i);
@@ -46,25 +46,9 @@ int main(){
     //     }
     //     printf("\n");
     // }
-
-    int j =5;
-    int *i;
-    int *a;
-    a= &j;
-    i=a;
-        
-    printf("%x\n", i);
-    printf("%x\n", a);
-    printf("%d\n", *i);
-    printf("%d\n", *a);
-
-    int b=66;
-    a = &b;
-
-    printf("%x\n", i);
-    printf("%x\n", a);
-    printf("%d\n", *i);
-    printf("%d\n", *a);
-
+    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
     
 }

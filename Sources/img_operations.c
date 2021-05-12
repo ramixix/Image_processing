@@ -15,6 +15,7 @@
 #include "../Includes/utils.h"
 #include "../Includes/linked_list.h"
 #include "../Includes/rst_moments.h"
+#include "../Includes/morphology.h"
 
 
 int Reset_changes(char *path, struct Image* img){
@@ -289,25 +290,51 @@ void convert_to_binary_kmeans(struct Image img){
     }
     printf("[+] last k1=%lf k2=%lf", k1, k2);
     uint8_t pixel_value;
+    uint8_t backgournd = 0;
+    uint8_t foreground = 255;
+    uint8_t choise;
+    printf("\nSelect an option (1) or (2)? (don't worry it's not a big deal): ");
+    scanf("%d", &choise);
+    while( (getchar()) != '\n');
+
     for(int h=0; h < img.height; h++){
         for(int w=0; w < img.width; w++){
             if(iteration == 256){
-                pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]) / 3 ;
+                pixel_value = img.pixels[h*img.width + w].red ;
             }
             else{
                 pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
             }
-            if( distant(pixel_value, k1) < distant(pixel_value, k2)){
-                set_pixel_value(img.pixels + h*img.width + w, 0, 0, 0);
+
+            if(choise == 1){
+                if( distant(pixel_value, k1) < distant(pixel_value, k2)){
+                    set_pixel_value(img.pixels + h*img.width + w, foreground, foreground, foreground);
+                }
+                else{
+                    set_pixel_value(img.pixels + h*img.width + w, backgournd, backgournd, backgournd);
+                }
             }
             else{
-                set_pixel_value(img.pixels + h*img.width + w, 255, 255, 255);
+                if( distant(pixel_value, k1) < distant(pixel_value, k2)){
+                    set_pixel_value(img.pixels + h*img.width + w, backgournd, backgournd, backgournd);
+                }
+                else{
+                    set_pixel_value(img.pixels + h*img.width + w, foreground, foreground, foreground);
+                }
             }
         }
     }
     free(obj_array);
+    printf("\n\nImage Converted To Binary Successfully.\n");
 }
 
+
+void morphology(struct Image *img){
+    int foreground = 1;
+    int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+}
 
 
 void handel_collision(struct collision collided, struct pixel *pixes, int height, int width){
@@ -404,6 +431,7 @@ void labeling(struct Image *img){
     //     handel_collision(collisions[item] , pixes, height, width);
     // }
     free(collisions);
+    printf("Image Has Been Labled Successfully.\n");
 }
 
 
@@ -492,11 +520,12 @@ void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width
 void bounding_box(struct Image *img){
     int height = img->height;
     int width = img->width;
+    struct pixel bounding_box_color = {255, 255, 255}; // bounding box color = white, we don't want to bouding box around another bounding box if user want to draw bounding box on image that is already bounded
     struct pixel_node *head = NULL;
     extern int Number_of_Nodes;
     for(int h=0; h < height; h++){
         for(int w=0; w < width; w++){
-            if(not_background(img->pixels[h*width+w])){
+            if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
                 add_if_not_exists(&head, img->pixels[h*width+w]);
             }
         }
@@ -509,17 +538,19 @@ void bounding_box(struct Image *img){
     }
    
     free_all(&head);
+    printf("Boudning Box Has Been Drawn Successfully.\n");
 }
 
 
 void feature_extraction(struct Image *img){
     int height = img->height;
     int width = img->width;
+    struct pixel bounding_box_color = {255, 255, 255}; // we don't want to extract feature for bounding boxes.
     struct pixel_node *head = NULL;
     extern int Number_of_Nodes;
     for(int h=0; h < height; h++){
         for(int w=0; w < width; w++){
-            if(not_background(img->pixels[h*width+w])){
+            if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
                 add_if_not_exists(&head, img->pixels[h*width+w]);
             }
         }
@@ -537,8 +568,10 @@ void feature_extraction(struct Image *img){
         calculate_invariant_moments(objs_moment+i);
         printf("\n%d. object moments vlaue:\n", i);
         print_final_moments(objs_moment+i);
+        printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
         printf("--------------------------------------------------------------------");
     }
    
     free_all(&head);
 }
+

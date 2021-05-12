@@ -4,10 +4,7 @@
 
 void rgb_to_gray(struct pixel *pix){
     uint8_t gray = (pix->red + pix->green + pix->blue)/3;
-    pix->red = gray;
-    pix->green = gray;
-    pix->blue = gray;
-
+    set_pixel_value(pix, gray, gray, gray);
 }
 
 
@@ -24,9 +21,9 @@ void set_pixel_value(struct pixel *pix, uint8_t red, uint8_t green, uint8_t blue
 
 
 void set_random_rgb(struct pixel *pix){
-    pix->red = ((rand()% 255 + 50 ) % 255);
-    pix->green = ((rand()% 255 + 50) % 255);
-    pix->blue = ((rand()% 255 + 50) % 255);
+    pix->red = ((rand()% 255 + rand()%75 ) % 255);
+    pix->green = ((rand()% 255 + rand()%75 ) % 255);
+    pix->blue = ((rand()% 255 + rand()%75 ) % 255);
 }
 
 
@@ -47,7 +44,7 @@ int compare_two_pixels(struct pixel pix1, struct pixel pix2){
 
 
 int not_background(struct pixel pix){
-    uint16_t background_value = 0; // red + green + blue = 255 + 255 + 255 = 765
+    uint16_t background_value = 0; 
     if(get_total_pixel_value(pix) != background_value){
         return 1;
     }

@@ -18,5 +18,6 @@ double calculate_normalized_moment(struct Moments *obj, double power_p, double p
 void calculate_invariant_moments(struct Moments *obj);
 double *get_finall_moments(struct Moments *obj);
 void print_final_moments(struct Moments *obj);
+double average_invariant_moment(struct Moments *obj);
 
 #endif
