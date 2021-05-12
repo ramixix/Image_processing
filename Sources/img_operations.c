@@ -16,6 +16,7 @@
 #include "../Includes/linked_list.h"
 #include "../Includes/rst_moments.h"
 #include "../Includes/morphology.h"
+#include "../Includes/data_base.h"
 
 
 int Reset_changes(char *path, struct Image* img){
@@ -556,8 +557,9 @@ void feature_extraction(struct Image *img){
         }
     }
     printf("%d Objects found inside image\n", Number_of_Nodes);
-    printf("Featrue extraction might take some time to draw bouding box. Please be patient.\n");
+    printf("Featrue extraction might take some time. Please be patient.\n");
     struct Moments objs_moment[Number_of_Nodes];
+    double average_moments[Number_of_Nodes];
 
     for(int i=0; i < Number_of_Nodes ; i++){
         struct pixel *search_for_pixel = get_node_pixel(head, i);
@@ -566,11 +568,50 @@ void feature_extraction(struct Image *img){
         copy_pixel_value(&(objs_moment[i].search_pixel), search_for_pixel);
         objs_moment[i].pixels_array = img->pixels;
         calculate_invariant_moments(objs_moment+i);
-        printf("\n%d. object moments vlaue:\n", i);
-        print_final_moments(objs_moment+i);
-        printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
-        printf("--------------------------------------------------------------------");
+        average_moments[i] = average_invariant_moment(objs_moment+i);
+        printf(".");
+        // printf("\n%d. object moments vlaue:\n", i);
+        // print_final_moments(objs_moment+i);
+        // printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
+        // printf("--------------------------------------------------------------------");
     }
+    int ch;
+    printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", Number_of_Nodes);
+    printf("Would you like to save the means inside database?(y/n) ");
+    scanf("%c", &ch);
+    while( (getchar()) != '\n');
+
+    if( ch == 121 || ch == 89 ){    // 89 and 121 are equvalent decimal value for 'Y' and 'y' characters.
+        int choise;
+        printf("How Do You Want To Save This Valuse?\n");
+        printf("1 - Save All Automatically Under a General Name.(all values are going to be saved to database under same name but different ID's)\n");
+        printf("2 - Explicitly Specify Names For Every Object\n");
+        scanf("%d", &choise);
+        while( (getchar()) != '\n');
+
+        if(choise == 1){
+            char name[50];
+            printf("Enter The General Name For Objects: ");
+            scanf("%50[^\n]", name);
+            while( (getchar()) != '\n');
+            int starting_id = find_biggest_id();
+            printf("%d\n", starting_id);
+            for(int i=0; i<Number_of_Nodes; i++){
+                append_auto(starting_id+i, name, average_moments[i]);
+            }
+        }
+        if(choise == 2){
+            int starting_id = find_biggest_id();
+            for(int i=0; i<Number_of_Nodes; i++){
+                char name[50];
+                printf("Enter Name For %d Object: ",i);
+                scanf("%50[^\n]", name);
+                while( (getchar()) != '\n');
+                append_auto(starting_id+i, name, average_moments[i]);
+            }
+        }
+    }
+
    
     free_all(&head);
 }

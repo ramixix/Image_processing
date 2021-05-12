@@ -5,6 +5,7 @@
 
 #include "Includes/img_operations.h"
 #include "Includes/utils.h"
+#include "Includes/data_base.h"
  
 int main(int arg_count, char *arg_list[]){
     char image_path[200];
@@ -28,7 +29,7 @@ int main(int arg_count, char *arg_list[]){
 
     if(is_valid != -1){
         printf("\nImage has been Loaded What do you want to do with it?\n");
-        while(choise != 9){
+        while(choise != 10){
             printf("\n##############################-=[ Choose A Number ]=-##############################\n");
             printf("1 - Convert To Gray.\n");
             printf("2 - Convert Binary.\n");
@@ -38,13 +39,14 @@ int main(int arg_count, char *arg_list[]){
             printf("6 - Extract Featrues.\n");
             printf("7 - Save It.\n");
             printf("8 - Reset All Changes.\n");
-            printf("9 - Quit.\n");
+            printf("9 - Connect To DataBase.\n");
+            printf("10 - Quit.\n");
             printf("====================================================================================\n\n");
             printf("Please Enter Your Choise: ");
             scanf("%d", &choise);
             while ((getchar()) != '\n');
-            
-            if(choise < 1 || choise > 9){
+
+            if(choise < 1 || choise > 10){
                 printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
             }
             else if( choise == 1){
@@ -84,6 +86,10 @@ int main(int arg_count, char *arg_list[]){
                 else{
                     printf("Changes have been Reseted.\n");
                 }
+            }
+
+            else if(choise == 9){
+                main_database_operations();
             }
         }
     }
