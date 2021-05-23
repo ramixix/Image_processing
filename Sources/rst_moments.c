@@ -23,8 +23,8 @@ double calculate_moment(struct Moments *obj, double power_p, double power_q){
 
 
 void calculate_central_row_column(struct Moments *obj){
-    obj->central_row = (obj, 1, 0) /  calculate_moment(obj, 0, 0);
-    obj->central_column = (obj, 0, 1) /  calculate_moment(obj, 0, 0);
+    obj->central_row = calculate_moment(obj, 1, 0) /  calculate_moment(obj, 0, 0);
+    obj->central_column = calculate_moment(obj, 0, 1) /  calculate_moment(obj, 0, 0);
 }
 
 

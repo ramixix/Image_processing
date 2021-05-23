@@ -7,6 +7,7 @@
 int check_part(struct pixel *pixes, int *structing_image, int width, int structing_image_height, int structing_image_width);
 void erision(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
 void dilation(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
-
+void boundary_extraction(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
 
 #endif

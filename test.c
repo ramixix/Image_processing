@@ -4,7 +4,8 @@
 #include <time.h>
 #include <unistd.h>
 #include <pthread.h>
-
+#include <fcntl.h>
+#include <sys/stat.h>
 
 
 struct pixel
@@ -46,9 +47,9 @@ int main(){
     //     }
     //     printf("\n");
     // }
-    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
-    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
-    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
-    printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
-    
+    // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+    // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
+  
 }

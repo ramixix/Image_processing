@@ -7,6 +7,8 @@
 
 int Number_of_Nodes = 0;
 
+
+// check if list is empty
 int is_empty_list(struct pixel_node *head){
     if (head == NULL){
         return 1;
@@ -15,6 +17,7 @@ int is_empty_list(struct pixel_node *head){
 }
 
 
+// push new value to list
 void push(struct pixel_node **head, struct pixel pix){
     struct pixel_node *new_node = (struct pixel_node *)malloc(sizeof(struct pixel_node));
     copy_pixel_value(&new_node->pix, &pix);
@@ -24,6 +27,7 @@ void push(struct pixel_node **head, struct pixel pix){
 }
 
 
+// print list if is not empty
 void print_list(struct pixel_node *head){
     if(is_empty_list(head)){
         printf("List is empty!!!\n");
@@ -38,6 +42,7 @@ void print_list(struct pixel_node *head){
 }
 
 
+// add a new node to list but first it checks if the new value is already exits in list and if it does not then it is going to add it.
 void add_if_not_exists(struct pixel_node **head, struct pixel pix){
     struct pixel_node *first = *head;
     int exists = 0;
@@ -54,6 +59,7 @@ void add_if_not_exists(struct pixel_node **head, struct pixel pix){
 }
 
 
+// free the memory that was allocated to every node of the list.
 void free_all(struct pixel_node **head){
     Number_of_Nodes = 0;
     if(is_empty_list(*head)){
@@ -71,6 +77,7 @@ void free_all(struct pixel_node **head){
 }
 
 
+// get the 'i'th index node inside the list, this return a pointer to that node(pixel).
 struct pixel *get_node_pixel(struct pixel_node *head, int i){
     if(i < Number_of_Nodes){
         struct pixel_node *tmp = head;

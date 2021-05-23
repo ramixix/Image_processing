@@ -9,7 +9,7 @@
 #include <math.h>
 
 
-
+// adding include files inside Includes directory
 #include "../Includes/img_operations.h"
 #include "../Includes/pixels.h"
 #include "../Includes/utils.h"
@@ -19,6 +19,16 @@
 #include "../Includes/data_base.h"
 
 
+/* 
+    Reset all changes that is done to image.
+    image path is the first thing that user should specify to run the program, what we do is 
+    to simply go again to that specified path and read all data back again, therefore we reset 
+    all change by replacing all data with the original one.
+
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
 int Reset_changes(char *path, struct Image* img){
     FILE* bmp_file = fopen(path, "rb");
     if (path == NULL){
@@ -40,6 +50,12 @@ int Reset_changes(char *path, struct Image* img){
 }
 
 
+/* 
+    Read Image for further operations.
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
 int Read_bmp(char* bmp_path, struct Image* img){
     // set headersize to standart 54 ( header[14] + headerinfo[40] = 54 )
     img->headersize = Standart_Headersize;
@@ -79,7 +95,7 @@ int Read_bmp(char* bmp_path, struct Image* img){
     }
 
     // First 2 bytes of the BMP file format are the character "B" then the character "M" in ASCII encoding.
-    // This block of bytes are at the start of the file and are used to identify the file
+    // This block of bytes are at the start of the file and are used to identify the file (file signutures)
     char signature[3];
     snprintf(signature, 3, "%s", img->header);
     if ( strcmp(signature, "BM") != 0 ){
@@ -144,6 +160,12 @@ int Read_bmp(char* bmp_path, struct Image* img){
 }
 
 
+/* 
+    Save Image to specified path.
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
 void Write_bmp(char *path_to_write, struct Image img){
     int write_to = open(path_to_write, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
     if (write_to == -1){
@@ -172,13 +194,19 @@ void Write_bmp(char *path_to_write, struct Image img){
 }
 
 
+/* 
+    Conver Image to gray scale.
+    get every pixel mean value by adding red, green and blue values together and then divide the total by 3.
+    after that by setting pixel's red, green and blue values all to the same mean we would have the gray version of image.
+ */
 void convert_to_gray(struct Image *img){
     if(img->width == 0 || img->height == 0){
         error("Width and height values are zero.('Conver_to_gray' function)\n");
         exit(-1);
     }
+    // first calculating padding
     uint8_t byte_per_pixel = 3;
-    uint32_t padding  = (4 - (img->width*byte_per_pixel) % 4) % 4;
+    uint32_t padding  = (4 - (img->width*byte_per_pixel)%4) % 4;
     int width = img->width;
     int height = img->height;
     printf("\n[+] padding : %d\n", padding);
@@ -202,6 +230,15 @@ void convert_to_gray(struct Image *img){
 }
 
 
+/* 
+    Calculating histogram array for image.
+    histogram array is 256 size. index from 0 to 255 so basically has 1 index for every possible value of a pixel's red, green and blue.
+    if image is converted to gray then fucntion will loop through every pixel and get one of the red, green, blue values as they are all
+    the same when image is gray then it won't differe which one we choose. after getting the value of pixel we add one to that index value,
+    and this way we can calculate the number of times a pixel value oocure in image.
+    Return :
+        unit32_t pointer that points to calculated histogram array
+ */
 uint32_t *get_histogram(struct Image img){
     uint32_t *obj_array;
     int obj_arrayay_size;
@@ -241,6 +278,12 @@ uint32_t *get_histogram(struct Image img){
 }
 
 
+/* 
+    Binary image (image that only contains the value of 0's and 1's) using KMEANS method.
+    by looking at historgram array we calculate two mean values using kmeans algorithm and then loop all over the image data 
+    and control which pixel's value is closer to which means and according to this we set pixel's value either to 0(black) or 255(white)
+
+ */
 void convert_to_binary_kmeans(struct Image img){
     double epsilon = 0.000001f;
     double k1=85, k2=170;
@@ -333,11 +376,33 @@ void convert_to_binary_kmeans(struct Image img){
 void morphology(struct Image *img){
     int foreground = 1;
     int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+    
+    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
     dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
     // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // boundary_extraction(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
 }
 
 
+/* 
+    This function is used and called when label function is called to label image.
+    every time a collision occures while labeling an image this fucntion goes through all pixels from the first of image data
+    and handle the collision by setting the collision pixels to smaller value.
+ */
 void handel_collision(struct collision collided, struct pixel *pixes, int height, int width){
     struct pixel left, up;
     copy_pixel_value(&left, collided.left_pix);
@@ -363,7 +428,14 @@ void handel_collision(struct collision collided, struct pixel *pixes, int height
 }
 
 
-
+/* 
+    Label Image. loop over image data and label each pixel by assining a unique color to pixels that are connected.
+    we label image according to '4-neighborhood region identification' method. we made a list of size 100 for collisions that might occur while labeling, 
+    beside that we count every time a collision occures and if this number became bigger than the collision array size we reallocate
+    memory for collision list by taking power of 2. every time that a collision occures we save needed information about it
+    in collision struct and right away handle_collision fucntion is called to correct the collision. pixels that have same label
+    are basically belong to the same object therefore in the end all objects inside the image have different color.
+ */
 void labeling(struct Image *img){
     int width = img->width;
     int height = img->height;
@@ -436,22 +508,36 @@ void labeling(struct Image *img){
 }
 
 
-void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row){
-    struct pixel white_bound = { 255, 255, 255};
+/* 
+    Draw bounding box using minimun row, column and maximum row, column that we find inside "find_poisition_for_bounding_box" function.
+    for every object, loop over image and according to postions that we calculate for that object draw white line at top, down, left and right
+    of object therefore this way we drawed bounding box.
+ */
+void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row, struct pixel bounding_box_color){
     for(int h=0; h < height; h++){
         for(int w=0; w < width; w++){
+            // every pixel that is in area of the object
             if( w >= min_column && w <= max_column && h >= min_row && h <= max_row){
+                // set pixel color to white if pixel is on the line top or bottom
                 if( w == min_column || w == max_column){
-                    copy_pixel_value(pixels + h*width + w, &white_bound);
+                    copy_pixel_value(pixels + h*width + w, &bounding_box_color);
                 }
+                // set pixel color to white if pixel is on the line left or right
                 if( h == min_row || h == max_row){
-                    copy_pixel_value(pixels + h*width + w, &white_bound);
+                    copy_pixel_value(pixels + h*width + w, &bounding_box_color);
                 }
             }
         }
     }
 }
 
+
+
+/* 
+    Find the minimum column position of an object.
+    Return :
+        integer ==> minimum column position
+ */
 int find_min_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
     int min_column = INT32_MAX;
     for(int h=0; h < height; h++){
@@ -466,6 +552,12 @@ int find_min_column(struct pixel *pixels, int height, int width, struct pixel se
     return min_column;
 }
 
+
+/* 
+    Find the maximum column position of an object.
+    Return :
+        integer ==> maximum column position
+ */
 int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
     int max_column = 0;
     for(int h=0; h < height; h++){
@@ -480,6 +572,12 @@ int find_max_column(struct pixel *pixels, int height, int width, struct pixel se
     return max_column;
 }
 
+
+/* 
+    Find the minimum row position of an object.
+    Return :
+        integer ==> minimum row position
+ */
 int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
     int min_row = INT32_MAX;
     for(int h=0; h < height; h++){
@@ -494,6 +592,12 @@ int find_min_row(struct pixel *pixels, int height, int width, struct pixel searc
     return min_row;
 }
 
+
+/* 
+    Find the maximum row position of an object.
+    Return :
+        integer ==> maximum row position
+ */
 int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
     int max_row = 0;
     for(int h=0; h < height; h++){
@@ -509,15 +613,28 @@ int find_max_row(struct pixel *pixels, int height, int width, struct pixel searc
 }
 
 
-void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
-    int min_column = find_min_column(pixels, height, width, search_for_pixel) - 2; // give 2 pixel space for every part of bounding box
+/* 
+    Determining edge positions of the bounding box that is going to draw around an object.
+    after find the 4 edges of the bouding box we basically draw the bouding box.
+    2 pixel space is added to every edge to prevent colliding bounding box with object.
+ */
+void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel, struct pixel bounding_box_color){
+    // give 2 pixel space for every bounding box of each object to prevent colliding bounding box with object itself.
+    int min_column = find_min_column(pixels, height, width, search_for_pixel) - 2; 
     int max_column = find_max_column(pixels, height, width, search_for_pixel) + 2;
     int min_row = find_min_row(pixels, height, width, search_for_pixel) - 2;
     int max_row = find_max_row(pixels, height, width, search_for_pixel) + 2;
-    draw_bounding_box(pixels, height, width, min_column, max_column, min_row, max_row);
+    draw_bounding_box(pixels, height, width, min_column, max_column, min_row, max_row, bounding_box_color);
 }
 
 
+/* 
+    draw bounding box around detected objects inside image.
+    first loop over the image data and find the detected object(after labeling image every object is assigned different colores ) 
+    then add detected objects to a list that is created using linked list algorhim. loop over every object inside that list and draw bounding box
+    for every and each of the objects.
+
+ */
 void bounding_box(struct Image *img){
     int height = img->height;
     int width = img->width;
@@ -535,7 +652,7 @@ void bounding_box(struct Image *img){
     printf("It might take some time to draw bouding box. Please be patient.\n");
     for(int i=0; i < Number_of_Nodes ; i++){
         struct pixel *search_for_pixel = get_node_pixel(head, i);
-        find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel);
+        find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel, bounding_box_color);
     }
    
     free_all(&head);
@@ -543,6 +660,12 @@ void bounding_box(struct Image *img){
 }
 
 
+
+/* 
+    Calculate mean values for every object detected and ask users if they want to save means and objects to
+    database
+
+ */
 void feature_extraction(struct Image *img){
     int height = img->height;
     int width = img->width;
@@ -570,13 +693,22 @@ void feature_extraction(struct Image *img){
         calculate_invariant_moments(objs_moment+i);
         average_moments[i] = average_invariant_moment(objs_moment+i);
         printf(".");
-        // printf("\n%d. object moments vlaue:\n", i);
-        // print_final_moments(objs_moment+i);
-        // printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
-        // printf("--------------------------------------------------------------------");
+        printf("\n%d. object moments vlaue:\n", i);
+        print_final_moments(objs_moment+i);
+        printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
+        printf("--------------------------------------------------------------------");
     }
+    save_to_databbase(average_moments, Number_of_Nodes);
+
+   
+    free_all(&head);
+}
+
+
+
+void save_to_databbase(double *average_moments, int node_number){
     int ch;
-    printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", Number_of_Nodes);
+    printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", node_number);
     printf("Would you like to save the means inside database?(y/n) ");
     scanf("%c", &ch);
     while( (getchar()) != '\n');
@@ -596,13 +728,13 @@ void feature_extraction(struct Image *img){
             while( (getchar()) != '\n');
             int starting_id = find_biggest_id();
             printf("%d\n", starting_id);
-            for(int i=0; i<Number_of_Nodes; i++){
+            for(int i=0; i<node_number; i++){
                 append_auto(starting_id+i, name, average_moments[i]);
             }
         }
         if(choise == 2){
             int starting_id = find_biggest_id();
-            for(int i=0; i<Number_of_Nodes; i++){
+            for(int i=0; i<node_number; i++){
                 char name[50];
                 printf("Enter Name For %d Object: ",i);
                 scanf("%50[^\n]", name);
@@ -611,8 +743,4 @@ void feature_extraction(struct Image *img){
             }
         }
     }
-
-   
-    free_all(&head);
 }
-

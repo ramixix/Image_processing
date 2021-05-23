@@ -31,13 +31,14 @@ void labeling(struct Image *img);
 int Reset_changes(char *path, struct Image* img);
 void handel_collision(struct collision collided, struct pixel *pixes, int height, int width);
 void bounding_box(struct Image *img);
-void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row);
+void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row, struct pixel bounding_box_color);
 int find_min_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
-void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel, struct pixel bounding_box_color);
 void feature_extraction(struct Image *img);
 void morphology(struct Image *img);
+void save_to_databbase(double *average_moments, int Number_of_nodes);
 
 #endif

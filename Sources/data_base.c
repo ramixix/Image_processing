@@ -1,8 +1,11 @@
 
 #include "../Includes/data_base.h"
 
+// name of database file
 char database_name[]={"mydb.dat"};
 
+
+// main function that is used to interact with user when they want to connect to database
 int main_database_operations(){
     int choise;
 
@@ -59,6 +62,8 @@ int main_database_operations(){
     return 0;
 }
 
+
+// append new entity to database
 void append(){
     FILE *fp;
     struct obj object;
@@ -77,6 +82,7 @@ void append(){
 }
 
 
+// rename the database file
 void rname(){
     char name[20];
 
@@ -88,6 +94,8 @@ void rname(){
     strcpy(database_name,name);
 }
 
+
+// remove database file. when user call this function we first ask them if they want to take a backup.
 void rremove(){
     FILE *fp,*fp1;
     struct obj t;
@@ -128,6 +136,7 @@ void rremove(){
 }
 
 
+// modify an entity inside database. find the entity using its id number.
 void modify(){
     FILE *fp,*fp1;
     struct obj t,object;
@@ -186,6 +195,7 @@ void modify(){
 }
 
 
+// delete an entity using its id.
 void del()
 {
     FILE *fp,*fp1;
@@ -233,6 +243,8 @@ void del()
     fclose(fp1);
 }
 
+
+// display an entity to screen.
 void display(){
     FILE *fp;
     struct obj t;
@@ -269,6 +281,8 @@ void display(){
     fclose(fp);
 }
 
+
+// it display an entity, by searching it name inside databas.
 void search(){
     FILE *fp;
     struct obj t;
@@ -306,6 +320,7 @@ void search(){
 }
 
 
+// display all entities inside database
 void displayAll(){
     FILE *fp;
     struct obj t;
@@ -335,6 +350,7 @@ void displayAll(){
 }
 
 
+// find the biggest id by going through each entity and return biggest id of entitys. otherwise returns -1
 int find_biggest_id(){
     FILE *fp = fopen(database_name, "rb");
     int biggest_id = -1;
@@ -352,6 +368,7 @@ int find_biggest_id(){
 }
 
 
+// append an entity. this is used inside program where there is no direct interact between user and database
 void append_auto(int id, char name[50], double mean){
     struct obj object;
     object.id = id;
