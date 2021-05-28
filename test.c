@@ -52,4 +52,6 @@ int main(){
     // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
     // printf("%d %d %d %d\n", rand()%255, rand()%255, rand()%255, rand()%255);
   
+    double max = __DBL_MAX__;
+    printf("%lf", max);
 }

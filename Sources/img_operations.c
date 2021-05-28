@@ -286,10 +286,10 @@ uint32_t *get_histogram(struct Image img){
  */
 void convert_to_binary_kmeans(struct Image img){
     double epsilon = 0.000001f;
-    double k1=85, k2=170;
-    double k3, k4;
-    int dividend_k3=0, dividend_k4=0;
-    int divisor_k3=0, divisor_k4=0;
+    double k1=150, k2=200;
+    double next_k1, next_k2;
+    double dividend_near_k1=0, dividend_near_k2=0;
+    double divisor_near_k1=0, divisor_near_k2=0;
     uint16_t iteration = 256;   // assume that image is already grayscale 
     // check if image is grayscale or not. if it is not then ask them if they want to conver to grayscale before continueing.
     if(img.is_gray != 1){
@@ -309,27 +309,31 @@ void convert_to_binary_kmeans(struct Image img){
     while(run){
         for(int item=0; item < iteration; item++){
             if( distant(item, k1) < distant(item, k2) ){
-                dividend_k3 += item * obj_array[item];
-                divisor_k3 += obj_array[item];
-            }else{
-                dividend_k4 += item * obj_array[item];
-                divisor_k4 += obj_array[item];
+                dividend_near_k1 += item * obj_array[item];
+                divisor_near_k1 += obj_array[item];
+            }
+            else{
+                dividend_near_k2 += item * obj_array[item];
+                divisor_near_k2 += obj_array[item];
             }
         }
-        k3 = (double)dividend_k3 / divisor_k3;
-        k4 = (double)dividend_k4 / divisor_k4;
+
+        next_k1 = dividend_near_k1 / divisor_near_k1;
+        next_k2 = dividend_near_k2 / divisor_near_k2;
+        
+    
         printf("k1=%lf k2=%lf\n", k1, k2);
-        printf("k3=%lf k4=%lf\n", k3, k4);
-        if(fabs(k1-k3) < epsilon && fabs(k2-k4) < epsilon ){
+        printf("k3=%lf k4=%lf\n", next_k1, next_k2);
+        if(fabs(k1-next_k1) < epsilon && fabs(k2-next_k2) < epsilon ){
             run = 0;
         }
         else{
-            k1 = k3;
-            k2 = k4;
-            divisor_k3 = 0;
-            dividend_k3 = 0;
-            divisor_k4 = 0;
-            dividend_k4 = 0;
+            k1 = next_k1;
+            k2 = next_k2;
+            dividend_near_k1 = 0;
+            divisor_near_k1 = 0;
+            dividend_near_k2 = 0;
+            divisor_near_k2 = 0;
         }
     }
     printf("[+] last k1=%lf k2=%lf", k1, k2);
@@ -377,24 +381,13 @@ void morphology(struct Image *img){
     int foreground = 1;
     int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
     
-    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
-    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    erision(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);
+    kinda_region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+    opening(img->pixels, structing_image, img->height, img->width, 3, 3);
+    closing(img->pixels, structing_image, img->height, img->width, 3, 3);
     // boundary_extraction(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
-    // region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+  
+    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);   
 }
 
 
@@ -432,7 +425,7 @@ void handel_collision(struct collision collided, struct pixel *pixes, int height
     Label Image. loop over image data and label each pixel by assining a unique color to pixels that are connected.
     we label image according to '4-neighborhood region identification' method. we made a list of size 100 for collisions that might occur while labeling, 
     beside that we count every time a collision occures and if this number became bigger than the collision array size we reallocate
-    memory for collision list by taking power of 2. every time that a collision occures we save needed information about it
+    memory for collision list by multiplying previous array size to 8. every time that a collision occures we save needed information about it
     in collision struct and right away handle_collision fucntion is called to correct the collision. pixels that have same label
     are basically belong to the same object therefore in the end all objects inside the image have different color.
  */
@@ -639,8 +632,8 @@ void bounding_box(struct Image *img){
     int height = img->height;
     int width = img->width;
     struct pixel bounding_box_color = {255, 255, 255}; // bounding box color = white, we don't want to bouding box around another bounding box if user want to draw bounding box on image that is already bounded
-    struct pixel_node *head = NULL;
-    extern int Number_of_Nodes;
+    struct pixel_node *head = NULL; // initial the single list
+
     for(int h=0; h < height; h++){
         for(int w=0; w < width; w++){
             if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
@@ -648,9 +641,11 @@ void bounding_box(struct Image *img){
             }
         }
     }
-    printf("%d Objects found inside image\n", Number_of_Nodes);
+    extern int Number_of_Nodes;
+    int node_number = Number_of_Nodes;
+    printf("%d Objects found inside image\n", node_number);
     printf("It might take some time to draw bouding box. Please be patient.\n");
-    for(int i=0; i < Number_of_Nodes ; i++){
+    for(int i=0; i < node_number ; i++){
         struct pixel *search_for_pixel = get_node_pixel(head, i);
         find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel, bounding_box_color);
     }
@@ -666,12 +661,12 @@ void bounding_box(struct Image *img){
     database
 
  */
-void feature_extraction(struct Image *img){
+void feature_extraction(struct Image *img, uint8_t matching_check){
     int height = img->height;
     int width = img->width;
     struct pixel bounding_box_color = {255, 255, 255}; // we don't want to extract feature for bounding boxes.
+    const uint8_t PHI_Num = 7;
     struct pixel_node *head = NULL;
-    extern int Number_of_Nodes;
     for(int h=0; h < height; h++){
         for(int w=0; w < width; w++){
             if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
@@ -679,10 +674,14 @@ void feature_extraction(struct Image *img){
             }
         }
     }
-    printf("%d Objects found inside image\n", Number_of_Nodes);
+
+    extern int Number_of_Nodes;
+    int node_number = Number_of_Nodes;
+    struct Moments objs_moment[node_number];
+    struct Moments *total_objects_moment[node_number];
+    double average_moments[node_number];
+    printf("%d Objects found inside image\n", node_number);
     printf("Featrue extraction might take some time. Please be patient.\n");
-    struct Moments objs_moment[Number_of_Nodes];
-    double average_moments[Number_of_Nodes];
 
     for(int i=0; i < Number_of_Nodes ; i++){
         struct pixel *search_for_pixel = get_node_pixel(head, i);
@@ -691,22 +690,45 @@ void feature_extraction(struct Image *img){
         copy_pixel_value(&(objs_moment[i].search_pixel), search_for_pixel);
         objs_moment[i].pixels_array = img->pixels;
         calculate_invariant_moments(objs_moment+i);
-        average_moments[i] = average_invariant_moment(objs_moment+i);
-        printf(".");
-        printf("\n%d. object moments vlaue:\n", i);
+        total_objects_moment[i] = objs_moment + i;
+        if(matching_check)
+            average_moments[i] = average_invariant_moment(objs_moment+i);
+        
+        printf("%d. object moments vlaue:\n", i);
         print_final_moments(objs_moment+i);
         printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
-        printf("--------------------------------------------------------------------");
+        printf("--------------------------------------------------------------------\n");
     }
-    save_to_databbase(average_moments, Number_of_Nodes);
 
+    if(matching_check == 0){
+        double final_PHIS[PHI_Num];
+        double average_PHIS=0;
+        for(int i=0; i < PHI_Num ; i++){
+            for(int j=0; j < node_number; j++){
+                final_PHIS[i] += total_objects_moment[j]->invariant_moments[i];
+            }
+        }
+        for(int i=0; i < PHI_Num; i++){
+            final_PHIS[i] = final_PHIS[i] / node_number;
+            average_PHIS += final_PHIS[i];
+            printf("Final PHI %d: %lf\n", i, final_PHIS[i]);
+        }
+        save_to_databbase(average_PHIS/PHI_Num, node_number);
+    }
+    else{
+        char *detected_obj_name;
+        for(int i=0; i < node_number; i++){
+            detected_obj_name = minimum_distance_obj_detection(average_moments[i]);
+            printf("\nObject %d is a(n) '%s'\n", i, detected_obj_name);
+        }
+    }
    
     free_all(&head);
 }
 
 
 
-void save_to_databbase(double *average_moments, int node_number){
+void save_to_databbase(double average_moments, int node_number){
     int ch;
     printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", node_number);
     printf("Would you like to save the means inside database?(y/n) ");
@@ -714,33 +736,44 @@ void save_to_databbase(double *average_moments, int node_number){
     while( (getchar()) != '\n');
 
     if( ch == 121 || ch == 89 ){    // 89 and 121 are equvalent decimal value for 'Y' and 'y' characters.
-        int choise;
-        printf("How Do You Want To Save This Valuse?\n");
-        printf("1 - Save All Automatically Under a General Name.(all values are going to be saved to database under same name but different ID's)\n");
-        printf("2 - Explicitly Specify Names For Every Object\n");
-        scanf("%d", &choise);
-        while( (getchar()) != '\n');
+        // int choise;
+        // printf("How Do You Want To Save This Valuse?\n");
+        // printf("1 - Save All Automatically Under a General Name.(all values are going to be saved to database under same name but different ID's)\n");
+        // printf("2 - Explicitly Specify Names For Every Object\n");
+        // scanf("%d", &choise);
+        // while( (getchar()) != '\n');
 
-        if(choise == 1){
-            char name[50];
-            printf("Enter The General Name For Objects: ");
-            scanf("%50[^\n]", name);
-            while( (getchar()) != '\n');
-            int starting_id = find_biggest_id();
-            printf("%d\n", starting_id);
-            for(int i=0; i<node_number; i++){
-                append_auto(starting_id+i, name, average_moments[i]);
-            }
-        }
-        if(choise == 2){
-            int starting_id = find_biggest_id();
-            for(int i=0; i<node_number; i++){
-                char name[50];
-                printf("Enter Name For %d Object: ",i);
-                scanf("%50[^\n]", name);
-                while( (getchar()) != '\n');
-                append_auto(starting_id+i, name, average_moments[i]);
-            }
-        }
+        // if(choise == 1){
+        char name[50];
+        printf("\nEnter The General Name For Objects: ");
+        scanf("%50[^\n]", name);
+        while( (getchar()) != '\n');
+        int starting_id = find_biggest_id();
+        printf("%d\n", starting_id);
+        // for(int i=0; i<node_number; i++){
+        append_auto(starting_id , name, average_moments);
+        // }
+        // }
+        // if(choise == 2){
+        //     int starting_id = find_biggest_id();
+        //     for(int i=0; i<node_number; i++){
+        //         char name[50];
+        //         printf("Enter Name For %d Object: ",i);
+        //         scanf("%50[^\n]", name);
+        //         while( (getchar()) != '\n');
+        //         append_auto(starting_id+i, name, average_moments[i]);
+        //     }
+        // }
     }
+}
+
+
+void check_matching(struct Image *img){
+    uint8_t mathcing_check = 1;
+    convert_to_gray(img);
+    convert_to_binary_kmeans(*img);
+    // morphology(img);
+    labeling(img);
+    feature_extraction(img, mathcing_check);
+
 }

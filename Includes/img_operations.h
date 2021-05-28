@@ -37,8 +37,9 @@ int find_max_column(struct pixel *pixels, int height, int width, struct pixel se
 int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
 void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel, struct pixel bounding_box_color);
-void feature_extraction(struct Image *img);
+void feature_extraction(struct Image *img, uint8_t matching_check);
 void morphology(struct Image *img);
-void save_to_databbase(double *average_moments, int Number_of_nodes);
+void save_to_databbase(double average_moments, int Number_of_nodes);
+void check_matching(struct Image *img);
 
 #endif

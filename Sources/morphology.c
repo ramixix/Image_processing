@@ -135,3 +135,40 @@ void region_filling(struct pixel *pixes, int *structing_image, int height, int w
 
         
 }
+
+
+void kinda_region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *tmp_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(tmp_pixes, 0, sizeof(struct pixel)*height*width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(not_background(pixes[h*width+w]) == 1)
+                set_pixel_value( (tmp_pixes+h*width+w), 255, 255, 255);
+        }
+    }
+
+    boundary_extraction(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(not_background(tmp_pixes[h*width+w]) || not_background(pixes[h*width+w]) ){
+                set_pixel_value(pixes+h*width+w, 255, 255, 255);
+            }
+        }
+    }
+
+}
+
+
+void opening(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    erision(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+}
+
+
+void closing(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    erision(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+}

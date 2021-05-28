@@ -6,6 +6,7 @@
 #include "Includes/img_operations.h"
 #include "Includes/utils.h"
 #include "Includes/data_base.h"
+#include "Includes/morphology.h"
  
  #define PATH_LENGTH 200
 
@@ -32,25 +33,27 @@ int main(int arg_count, char *arg_list[]){
     // start asking user what they want to do with opened image
     if(is_valid != -1){
         printf("\nImage has been Loaded What do you want to do with it?\n");
-        while(choise != 11){
+        while(choise != 13){
             printf("\n##############################-=[ Choose A Number ]=-##############################\n");
             printf("1 - Convert To Gray.\n");
             printf("2 - Convert Binary.\n");
-            printf("3 - morphology\n");
-            printf("4 - Labeling\n");
-            printf("5 - Bounding Box\n");
-            printf("6 - Extract Featrues.\n");
-            printf("7 - Object detection.\n");
-            printf("8 - Save It.\n");
-            printf("9 - Reset All Changes.\n");
-            printf("10 - Connect To DataBase.\n");
-            printf("11 - Quit.\n");
+            printf("3 - Morphology\n");
+            printf("4 - Dilation\n");
+            printf("5 - Erision\n");
+            printf("6 - Labeling\n");
+            printf("7 - Bounding Box\n");
+            printf("8 - Extract Featrues.\n");
+            printf("9 - Object detection.\n");
+            printf("10 - Save It.\n");
+            printf("11 - Reset All Changes.\n");
+            printf("12 - Connect To DataBase.\n");
+            printf("13 - Quit.\n");
             printf("====================================================================================\n\n");
             printf("Please Enter Your Choise: ");
             scanf("%d", &choise);
             while ((getchar()) != '\n');
 
-            if(choise < 1 || choise > 11){
+            if(choise < 1 || choise > 13){
                 printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
             }
             else if( choise == 1){
@@ -65,23 +68,39 @@ int main(int arg_count, char *arg_list[]){
             }
 
             else if(choise == 4){
-                labeling(&img);
-            }
-            else if(choise == 5){
-                bounding_box(&img);
-            }
-            else if(choise == 6){
-                feature_extraction(&img);
+                int foreground = 1;
+                int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+                dilation(img.pixels, structing_image, img.height, img.width, 3, 3);
             }
 
+            else if(choise == 5){
+                int foreground = 1;
+                int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+                erision(img.pixels, structing_image, img.height, img.width, 3, 3);
+            }
+
+            else if(choise == 6){
+                labeling(&img);
+            }
+            else if(choise == 7){
+                bounding_box(&img);
+            }
             else if(choise == 8){
+                feature_extraction(&img, 0);
+            }
+
+            else if(choise == 9){
+                check_matching(&img);
+            }
+
+            else if(choise == 10){
                 printf("Where do you want to save the file?(give the absolute path): ");
                 scanf("%s", save_path);
                 Write_bmp(save_path, img);
                 
             }
 
-            else if( choise == 9){
+            else if( choise == 11){
                 printf("Trying to reset changes...\n");
                 int is_reset = Reset_changes(image_path, &img);
                 if(is_reset == -1){
@@ -92,7 +111,7 @@ int main(int arg_count, char *arg_list[]){
                 }
             }
 
-            else if(choise == 10){
+            else if(choise == 12){
                 main_database_operations();
             }
         }

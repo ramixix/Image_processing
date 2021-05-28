@@ -1,0 +1,1913 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <math.h>
+
+#define Signature "BM"
+#define Bits_Per_Pixel 24
+#define NoCompression 0
+#define Standart_Headersize 54
+#define DataOffset 10 
+#define PATH_LENGTH 200
+
+
+struct Image
+{
+    unsigned char *header;
+    uint32_t headersize;
+    uint32_t image_size;
+    uint32_t width;
+    uint32_t height;
+    struct pixel *pixels;
+    uint8_t is_gray;
+};
+
+struct pixel
+{
+    uint8_t red;
+    uint8_t green;
+    uint8_t blue; 
+};
+
+// struct to detect and take care of the collisions while labeling images.
+struct collision{
+    struct pixel *left_pix;
+    struct pixel *up_pix;
+};
+
+
+struct Moments{
+    double invariant_moments[7];
+    double central_column, central_row;
+    int height, width;
+    struct pixel *pixels_array;
+    struct pixel search_pixel;
+};
+
+
+struct pixel_node{
+    struct pixel pix;
+    struct pixel_node *next;
+};
+
+
+struct obj{
+    int id;
+    char name[50];
+    double mean;
+};
+
+
+int Read_bmp(char* bmp_path, struct Image* img);
+void Write_bmp(char *path_to_write, struct Image img);
+void convert_to_gray(struct Image *img);
+uint32_t *get_histogram(struct Image img);
+void convert_to_binary_kmeans(struct Image img);
+void change(int bigger_lable, int less_label, int width, int hieght, uint8_t *matrix);
+void labeling(struct Image *img);
+int Reset_changes(char *path, struct Image* img);
+void handel_collision(struct collision collided, struct pixel *pixes, int height, int width);
+void bounding_box(struct Image *img);
+void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row, struct pixel bounding_box_color);
+int find_min_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel);
+void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel, struct pixel bounding_box_color);
+void feature_extraction(struct Image *img, uint8_t matching_check);
+void morphology(struct Image *img);
+void save_to_databbase(double *average_moments, int Number_of_nodes);
+void check_matching(struct Image *img);
+void rgb_to_gray(struct pixel *pix);
+uint16_t get_total_pixel_value(struct pixel pix);
+void set_pixel_value(struct pixel *pix, uint8_t red, uint8_t green, uint8_t blue);
+void set_random_rgb(struct pixel *pix);
+void copy_pixel_value(struct pixel *pix1, struct pixel *pix2);
+int compare_two_pixels(struct pixel pix1, struct pixel pix2);
+int not_background(struct pixel pix);
+void error(char *message);
+int check_null(void *ptr, char* message);
+double distant(double num1, double num2);
+double calculate_moment(struct Moments *obj, double power_p, double power_q);
+void calculate_central_row_column(struct Moments *obj);
+double calculate_central_moment(struct Moments *obj, double power_p, double power_q);
+double calculate_normalized_moment(struct Moments *obj, double power_p, double power_q);
+void calculate_invariant_moments(struct Moments *obj);
+double *get_finall_moments(struct Moments *obj);
+void print_final_moments(struct Moments *obj);
+double average_invariant_moment(struct Moments *obj);
+int check_part(struct pixel *pixes, int *structing_image, int width, int structing_image_height, int structing_image_width);
+void erision(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void dilation(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void boundary_extraction(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void kinda_region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void opening(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+void closing(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width);
+int is_empty_list(struct pixel_node *head);
+void push(struct pixel_node **head, struct pixel pix);
+void print_list(struct pixel_node *head);
+void add_if_not_exists(struct pixel_node **head, struct pixel pix);
+void free_all(struct pixel_node **head);
+struct pixel *get_node_pixel(struct pixel_node *head, int i);
+int main_database_operations();
+void append_auto(int id, char name[50], double mean);
+void append();
+void display();
+void displayAll();
+void modify();
+void del();
+void search();
+void rname();
+void rremove();
+int find_biggest_id();
+char mygetch();
+char *minimum_distance_obj_detection(double mean);
+
+
+
+
+
+int main(int arg_count, char *arg_list[]){
+    char image_path[PATH_LENGTH];
+    char save_path[PATH_LENGTH];
+    struct Image img;
+    int is_valid;
+    int choise=0;
+    srand(time(NULL));
+
+    // get image path to open in two ways : 1. as command line argument while compling the code 2. promp user to etner it after running code.
+    if (arg_count > 1){
+        strncpy(image_path, arg_list[1], PATH_LENGTH-1);
+        is_valid = Read_bmp(image_path, &img);
+    }
+    else{
+        printf("Enter the path of your bmp image: ");
+        scanf("%199s", image_path);
+        is_valid = Read_bmp(image_path, &img);
+
+    }
+
+    // start asking user what they want to do with opened image
+    if(is_valid != -1){
+        printf("\nImage has been Loaded What do you want to do with it?\n");
+        while(choise != 13){
+            printf("\n##############################-=[ Choose A Number ]=-##############################\n");
+            printf("1 - Convert To Gray.\n");
+            printf("2 - Convert Binary.\n");
+            printf("3 - Morphology\n");
+            printf("4 - Dilation\n");
+            printf("5 - Erision\n");
+            printf("6 - Labeling\n");
+            printf("7 - Bounding Box\n");
+            printf("8 - Extract Featrues.\n");
+            printf("9 - Object detection.\n");
+            printf("10 - Save It.\n");
+            printf("11 - Reset All Changes.\n");
+            printf("12 - Connect To DataBase.\n");
+            printf("13 - Quit.\n");
+            printf("====================================================================================\n\n");
+            printf("Please Enter Your Choise: ");
+            scanf("%d", &choise);
+            while ((getchar()) != '\n');
+
+            if(choise < 1 || choise > 13){
+                printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
+            }
+            else if( choise == 1){
+                convert_to_gray(&img);
+            }
+            else if( choise == 2){
+                convert_to_binary_kmeans(img);
+            }
+
+            else if(choise == 3){
+                morphology(&img);
+            }
+
+            else if(choise == 4){
+                int foreground = 1;
+                int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+                dilation(img.pixels, structing_image, img.height, img.width, 3, 3);
+            }
+
+            else if(choise == 5){
+                int foreground = 1;
+                int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+                erision(img.pixels, structing_image, img.height, img.width, 3, 3);
+            }
+
+            else if(choise == 6){
+                labeling(&img);
+            }
+            else if(choise == 7){
+                bounding_box(&img);
+            }
+            else if(choise == 8){
+                feature_extraction(&img, 0);
+            }
+
+            else if(choise == 9){
+                check_matching(&img);
+            }
+
+            else if(choise == 10){
+                printf("Where do you want to save the file?(give the absolute path): ");
+                scanf("%s", save_path);
+                Write_bmp(save_path, img);
+                
+            }
+
+            else if( choise == 11){
+                printf("Trying to reset changes...\n");
+                int is_reset = Reset_changes(image_path, &img);
+                if(is_reset == -1){
+                    error("Unable to reset changes!!!\n");
+                }
+                else{
+                    printf("Changes have been Reseted.\n");
+                }
+            }
+
+            else if(choise == 12){
+                main_database_operations();
+            }
+        }
+    }
+    printf("\nHave Good Day");
+    // free the amount of memory that was allocated for image header and image data here after all operations are done
+    free(img.pixels);
+    free(img.header);
+    return 0;
+}
+
+
+
+
+/* 
+    Reset all changes that is done to image.
+    image path is the first thing that user should specify to run the program, what we do is 
+    to simply go again to that specified path and read all data back again, therefore we reset 
+    all change by replacing all data with the original one.
+
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
+int Reset_changes(char *path, struct Image* img){
+    FILE* bmp_file = fopen(path, "rb");
+    if (path == NULL){
+        error("Unable to open file for Reseting file (inside Reset_changes function).\n");
+        return -1;
+    }
+    uint64_t size_to_read = img->width * img->height;
+    fseek(bmp_file, img->headersize, SEEK_SET);
+    int readed = fread(img->pixels, sizeof(struct pixel), size_to_read, bmp_file);
+    if( readed != size_to_read){
+        error("Uable to read the old image data to reset changes.( Reset_chagnes fucntion\n");
+        printf("%d was suppose to get read but we get %d instead.\n", size_to_read, readed);
+        fclose(bmp_file);
+        return -1;
+    }
+    // fclose the image file
+    fclose(bmp_file);
+    return 0;
+}
+
+
+/* 
+    Read Image for further operations.
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
+int Read_bmp(char* bmp_path, struct Image* img){
+    // set headersize to standart 54 ( header[14] + headerinfo[40] = 54 )
+    img->headersize = Standart_Headersize;
+
+    // opening bmp file
+    FILE* bmp_file = fopen(bmp_path, "rb");
+    if (bmp_file == NULL){
+        error("While opening file ('Read_bmp' function).\n");
+        return -1;
+    }
+
+    // Reading the DataOffset that determine general header (offset from beginning of file to the beginning of the bitmap data )
+    // It has 4 byte (integer size)
+    fseek(bmp_file, DataOffset, SEEK_SET);
+    int genral_header_size = fread(&img->headersize, sizeof(int), 1, bmp_file);
+    if(genral_header_size != 1 ){
+        error("Unable to read the general header size ('Read_bmp' function).\n");
+        fclose(bmp_file);
+        return -1;
+    }
+
+    // After finding the dataoffset bring cursor to start of file for futher readings, and then allocate approperiate size for header
+    fseek(bmp_file, 0, SEEK_SET);
+    img->header = (unsigned char *)malloc(img->headersize);
+    if( img->header == NULL){
+        error("Unable to allocate memory for header('Read_bmp' function).\n");
+        fclose(bmp_file);
+        return -1;
+    }
+
+    // reading header of bmp file
+    int read_bmp = fread(img->header, sizeof(uint8_t), img->headersize, bmp_file);
+    if (read_bmp != img->headersize){
+        error("While reading header ('Read_bmp' function).\n");
+        fclose(bmp_file);
+        return -1;
+    }
+
+    // First 2 bytes of the BMP file format are the character "B" then the character "M" in ASCII encoding.
+    // This block of bytes are at the start of the file and are used to identify the file (file signutures)
+    char signature[3];
+    snprintf(signature, 3, "%s", img->header);
+    if ( strcmp(signature, "BM") != 0 ){
+        error("File does not have BM as signature ('Read_bmp' function).\n");
+        fclose(bmp_file);
+        return -1;
+    }
+
+    // check if color bits is equal to 24(8*rgb=24)
+    uint16_t bits_per_pixel = *(uint16_t *)&img->header[28];
+    if (bits_per_pixel != Bits_Per_Pixel){
+        error("Bits per pixel is not 24. Image must be a colored image.('Read_bmp' function).\\n");
+        fclose(bmp_file);
+        return -1;
+    }
+    
+    // make sure that image is not compressed
+    uint32_t isCompressed = *(uint32_t *)&img->header[30];
+    if(isCompressed != NoCompression){
+        error("Data is not be uncompressed.('Read_bmp' function).\\n");
+        fclose(bmp_file);
+        return -1;
+    }
+    
+    // After all the checking, extract information from the header
+    img->image_size = *(uint32_t *)&img->header[2];
+    uint32_t total_size = img->image_size - img->headersize;
+    img->width = *(uint32_t *)&img->header[18];
+    img->height = *(uint32_t *)&img->header[22];
+    uint32_t size_to_read = img->width * img->height;
+    img->is_gray = 0;
+
+    printf("\n---------------------------- Image Information --------------------------------\n");
+    printf("\t\t* Size of Image: %d bytes\n", img->image_size);
+    printf("\t\t* Image Width: %d\n", img->width);
+    printf("\t\t* Image Height: %d\n", img->height);
+    printf("\t\t* start of array: %d\n", img->headersize);
+    printf("\t\t* size of pixel data: %d\n", total_size);
+    printf("-------------------------------------------------------------------------------\n");
+
+    // allocate memory for read image pixel data.
+    img->pixels = (struct pixel *)malloc(size_to_read*sizeof(struct pixel));
+    if( img->pixels == NULL){
+        error("Unable to allocate memory for storing pixels ('Read_bmp' function).\n");
+        fclose(bmp_file);
+        return -1;
+    }
+    
+    // put cursor to starting of the image pixel data then start reading pixel data
+    fseek(bmp_file, img->headersize, SEEK_SET);
+    int readed = fread(img->pixels, sizeof(struct pixel), size_to_read, bmp_file);
+    if( readed != size_to_read){
+        error("While reading the image data ('Read_bmp' function).\n");
+        printf("%d amount were suppose to get readed but instead it readed %d.\n", size_to_read, readed);
+        fclose(bmp_file);
+        return -1;
+    }
+
+    // fclose the image file
+    fclose(bmp_file);
+    return 1;
+}
+
+
+/* 
+    Save Image to specified path.
+    Return :
+        '-1' if success
+        ' 1' if fail
+ */
+void Write_bmp(char *path_to_write, struct Image img){
+    int write_to = open(path_to_write, O_WRONLY | O_CREAT, S_IRUSR | S_IWUSR);
+    if (write_to == -1){
+        error("Unable write file to specified location ('Write_bmp' fucntion).\n");
+        exit(-1);
+    }
+    
+    // Write header
+    int element_wrote = write(write_to, img.header, img.headersize);
+    if( element_wrote != img.headersize ){
+        error("Unable to write the header properly('Write_bmp' fucntion).\n");
+        close(write_to);
+        exit(-1);
+    }
+
+    // Write image data
+    int size_to_write = img.width * img.height * sizeof(struct pixel);
+    int element_wrote1 = write(write_to, img.pixels, size_to_write);
+    if( element_wrote1 != size_to_write ){
+        error("Unable to write the image pixel data properly('Write_bmp' fucntion).\n");
+        close(write_to);
+        exit(-1);
+    }
+    close(write_to);
+    printf("\n[+] Image Has Been Saved Successfully.\n");
+}
+
+
+/* 
+    Conver Image to gray scale.
+    get every pixel mean value by adding red, green and blue values together and then divide the total by 3.
+    after that by setting pixel's red, green and blue values all to the same mean we would have the gray version of image.
+ */
+void convert_to_gray(struct Image *img){
+    if(img->width == 0 || img->height == 0){
+        error("Width and height values are zero.('Conver_to_gray' function)\n");
+        exit(-1);
+    }
+    // first calculating padding
+    uint8_t byte_per_pixel = 3;
+    uint32_t padding  = (4 - (img->width*byte_per_pixel)%4) % 4;
+    int width = img->width;
+    int height = img->height;
+    printf("\n[+] padding : %d\n", padding);
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            rgb_to_gray(img->pixels + h*width + w);
+        }
+        if(padding != 0){
+            int i = 0;
+            while(padding !=0 ){
+                rgb_to_gray(img->pixels + h*width + width+i);
+                i++;
+                padding -=1;
+            }
+        }
+    }
+    img->is_gray = 1;
+    printf("*******************************************************************************\n");
+    printf("\t\t\t Image Converted To Gray successfully\t\t\t\t\n");
+    printf("*******************************************************************************\n");
+}
+
+
+/* 
+    Calculating histogram array for image.
+    histogram array is 256 size. index from 0 to 255 so basically has 1 index for every possible value of a pixel's red, green and blue.
+    if image is converted to gray then fucntion will loop through every pixel and get one of the red, green, blue values as they are all
+    the same when image is gray then it won't differe which one we choose. after getting the value of pixel we add one to that index value,
+    and this way we can calculate the number of times a pixel value oocure in image.
+    Return :
+        unit32_t pointer that points to calculated histogram array
+ */
+uint32_t *get_histogram(struct Image img){
+    uint32_t *obj_array;
+    int obj_arrayay_size;
+    // If image is grayscal
+    if(img.is_gray == 1){
+        obj_arrayay_size = 256;
+        obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_arrayay_size);
+        // set all values of histogram array to 0 before any operation
+        memset(obj_array, 0, sizeof(uint32_t)*obj_arrayay_size);
+        if( obj_array != NULL){
+            for(int h=0; h < img.height; h++){
+                for(int w=0; w < img.width; w++){
+                    // if image is grayscale then all rgb values are the same so take one, we choose green here.
+                    uint8_t pixel_value = (img.pixels + h*img.width + w)->red;
+                    obj_array[pixel_value]++;
+                }
+            }
+        }
+    }
+    // If image is rgb
+    else{
+        obj_arrayay_size = 768; // red + green + blue = 256+256+256
+        obj_array = (uint32_t *)malloc(sizeof(uint32_t) * obj_arrayay_size);
+        // set all values of histogram array to 0 before any operation
+        memset(obj_array, 0, sizeof(uint32_t)*obj_arrayay_size);
+        if( obj_array != NULL){
+            for(int h=0; h < img.height; h++){
+                for(int w=0; w < img.width; w++){
+                    // when image is rgb then we add the red, green and blue values so total we would have values between 0 < value < 768
+                    uint8_t pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
+                    obj_array[pixel_value]++;
+                }
+            }
+        }
+    }
+    return obj_array;
+}
+
+
+
+/* 
+    Binary image (image that only contains the value of 0's and 1's) using KMEANS method.
+    by looking at historgram array we calculate two mean values using kmeans algorithm and then loop all over the image data 
+    and control which pixel's value is closer to which means and according to this we set pixel's value either to 0(black) or 255(white)
+
+ */
+void convert_to_binary_kmeans(struct Image img){
+    double epsilon = 0.000001f;
+    double k1=150, k2=200;
+    double next_k1, next_k2;
+    double dividend_near_k1=0, dividend_near_k2=0;
+    double divisor_near_k1=0, divisor_near_k2=0;
+    uint16_t iteration = 256;   // assume that image is already grayscale 
+    // check if image is grayscale or not. if it is not then ask them if they want to conver to grayscale before continueing.
+    if(img.is_gray != 1){
+        char answer;
+        printf("[?] Do you want grayscale image before convet it to binary?(y/n)");
+        scanf("%*c%C", &answer);
+        if(answer == 'y'){
+            convert_to_gray(&img);
+        }
+        else{
+            // image is not grayscale and user did not want to conver it so we get historgram distribution of total value of rgb pixels
+            iteration = 768; // 256+256+256
+        }
+    }
+    uint32_t *obj_array = get_histogram(img);
+    uint8_t run = 1;
+    while(run){
+        for(int item=0; item < iteration; item++){
+            if( distant(item, k1) < distant(item, k2) ){
+                dividend_near_k1 += item * obj_array[item];
+                divisor_near_k1 += obj_array[item];
+            }
+            else{
+                dividend_near_k2 += item * obj_array[item];
+                divisor_near_k2 += obj_array[item];
+            }
+        }
+
+        next_k1 = dividend_near_k1 / divisor_near_k1;
+        next_k2 = dividend_near_k2 / divisor_near_k2;
+        
+    
+        printf("k1=%lf k2=%lf\n", k1, k2);
+        printf("k3=%lf k4=%lf\n", next_k1, next_k2);
+        if(fabs(k1-next_k1) < epsilon && fabs(k2-next_k2) < epsilon ){
+            run = 0;
+        }
+        else{
+            k1 = next_k1;
+            k2 = next_k2;
+            dividend_near_k1 = 0;
+            divisor_near_k1 = 0;
+            dividend_near_k2 = 0;
+            divisor_near_k2 = 0;
+        }
+    }
+    printf("[+] last k1=%lf k2=%lf", k1, k2);
+    uint8_t pixel_value;
+    uint8_t backgournd = 0;
+    uint8_t foreground = 255;
+    uint8_t choise;
+    printf("\nSelect an option (1) or (2)? (don't worry it's not a big deal): ");
+    scanf("%d", &choise);
+    while( (getchar()) != '\n');
+
+    for(int h=0; h < img.height; h++){
+        for(int w=0; w < img.width; w++){
+            if(iteration == 256){
+                pixel_value = img.pixels[h*img.width + w].red ;
+            }
+            else{
+                pixel_value = get_total_pixel_value(img.pixels[h*img.width + w]);
+            }
+
+            if(choise == 1){
+                if( distant(pixel_value, k1) < distant(pixel_value, k2)){
+                    set_pixel_value(img.pixels + h*img.width + w, foreground, foreground, foreground);
+                }
+                else{
+                    set_pixel_value(img.pixels + h*img.width + w, backgournd, backgournd, backgournd);
+                }
+            }
+            else{
+                if( distant(pixel_value, k1) < distant(pixel_value, k2)){
+                    set_pixel_value(img.pixels + h*img.width + w, backgournd, backgournd, backgournd);
+                }
+                else{
+                    set_pixel_value(img.pixels + h*img.width + w, foreground, foreground, foreground);
+                }
+            }
+        }
+    }
+    free(obj_array);
+    printf("\n\nImage Converted To Binary Successfully.\n");
+}
+
+
+void morphology(struct Image *img){
+    int foreground = 1;
+    int structing_image[] = {foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground, foreground};
+    
+    kinda_region_filling(img->pixels, structing_image, img->height, img->width, 3, 3);
+    opening(img->pixels, structing_image, img->height, img->width, 3, 3);
+    closing(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // boundary_extraction(img->pixels, structing_image, img->height, img->width, 3, 3);
+  
+    // erision(img->pixels, structing_image, img->height, img->width, 3, 3);
+    // dilation(img->pixels, structing_image, img->height, img->width, 3, 3);   
+}
+
+
+
+/* 
+    This function is used and called when label function is called to label image.
+    every time a collision occures while labeling an image this fucntion goes through all pixels from the first of image data
+    and handle the collision by setting the collision pixels to smaller value.
+ */
+void handel_collision(struct collision collided, struct pixel *pixes, int height, int width){
+    struct pixel left, up;
+    copy_pixel_value(&left, collided.left_pix);
+    copy_pixel_value(&up, collided.up_pix);
+    uint16_t left_value = get_total_pixel_value(left);
+    uint16_t up_value = get_total_pixel_value(up);
+    struct pixel throw;
+    struct pixel substitute;
+    if(left_value > up_value){
+        copy_pixel_value(&throw, &left);
+        copy_pixel_value(&substitute, &up);
+    }
+    copy_pixel_value(&throw, &up);
+    copy_pixel_value(&substitute, &left);
+
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(compare_two_pixels(pixes[h*width + w], throw)){
+                copy_pixel_value(pixes + h*width + w, &substitute);
+            }
+        }
+    }
+}
+
+
+/* 
+    Label Image. loop over image data and label each pixel by assining a unique color to pixels that are connected.
+    we label image according to '4-neighborhood region identification' method. we made a list of size 100 for collisions that might occur while labeling, 
+    beside that we count every time a collision occures and if this number became bigger than the collision array size we reallocate
+    memory for collision list by multiplying previous array size to 8. every time that a collision occures we save needed information about it
+    in collision struct and right away handle_collision fucntion is called to correct the collision. pixels that have same label
+    are basically belong to the same object therefore in the end all objects inside the image have different color.
+ */
+void labeling(struct Image *img){
+    int width = img->width;
+    int height = img->height;
+    struct pixel *pixes = img->pixels;
+    int collision_count = 0;
+    int collision_arr_size = 100;
+    struct collision *collisions = (struct collision *)malloc(sizeof(struct collision) * collision_arr_size); // initial size is 10, if there be more than 10 collision then we will reallocate more memory later.
+    for(int h=0; h< height; h++){
+        for(int w=0; w < width ; w++){
+            if(not_background(pixes[h*width + w])){
+                if( w==0 ){
+                    set_random_rgb(pixes + h*width );
+                }
+                else if(not_background(pixes[h*width + w-1])){
+                    copy_pixel_value(pixes + h*width + w, pixes + h*width + w-1);
+                }
+                else{
+                    set_random_rgb(pixes + h*width + w );
+                }
+            }
+        }
+    }
+    for(int h=1; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(pixes[h*width + w])){
+                if( w != 0){
+                    if(not_background(pixes[(h-1)*width +w]) && not_background(pixes[h*width + w-1]) ){
+                        if(compare_two_pixels(pixes[(h-1)*width + w], pixes[h*width + w-1])){
+                            copy_pixel_value(pixes + h*width + w , pixes + (h-1)*width + w);
+                        }
+                        else{
+                            // check if the memory allocated for collision is enogh
+                            if(collision_count >= collision_arr_size){
+                                printf("Allocating more memory for collisions array...\n");
+                                int tmp_size = collision_arr_size * 8; // allocate 8 times more momery 
+                                collision_arr_size = tmp_size;
+                                collisions = (struct collision*)realloc(collisions, sizeof(struct collision) * collision_arr_size);
+                            }
+                            // specifying the left and up pixel of the pixel that collision occure
+                            collisions[collision_count].left_pix = pixes + h*width + w-1;
+                            collisions[collision_count].up_pix = pixes + (h-1)*width + w;
+                            // set the collided pixel value to one pixel left
+                            copy_pixel_value(pixes + h*width + w, pixes + h*width + w-1);
+                            handel_collision(collisions[collision_count] , pixes, height, width);
+                            collision_count += 1;
+                        }
+                    }
+                    else if(not_background(pixes[(h-1)*width + w])){
+                        copy_pixel_value(pixes + h*width + w , pixes + (h-1)*width + w);
+                    }
+                    else if(not_background(pixes[h*width + w-1])){
+                        copy_pixel_value(pixes + h*width + w , pixes + h*width + w-1);
+                    }
+                }
+                else{
+                    if(not_background( pixes[(h-1)*width])){
+                        copy_pixel_value(pixes + h*width , pixes + (h-1)*width);
+                    }
+                }
+            }
+        }
+    }
+
+    printf("collision count %d\n", collision_count);
+    // for(int item=0; item < collision_count; item++){
+    //     handel_collision(collisions[item] , pixes, height, width);
+    // }
+    free(collisions);
+    printf("Image Has Been Labled Successfully.\n");
+}
+
+
+/* 
+    Draw bounding box using minimun row, column and maximum row, column that we find inside "find_poisition_for_bounding_box" function.
+    for every object, loop over image and according to postions that we calculate for that object draw white line at top, down, left and right
+    of object therefore this way we drawed bounding box.
+ */
+void draw_bounding_box(struct pixel *pixels, int height, int width, int min_column, int max_column, int min_row, int max_row, struct pixel bounding_box_color){
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            // every pixel that is in area of the object
+            if( w >= min_column && w <= max_column && h >= min_row && h <= max_row){
+                // set pixel color to white if pixel is on the line top or bottom
+                if( w == min_column || w == max_column){
+                    copy_pixel_value(pixels + h*width + w, &bounding_box_color);
+                }
+                // set pixel color to white if pixel is on the line left or right
+                if( h == min_row || h == max_row){
+                    copy_pixel_value(pixels + h*width + w, &bounding_box_color);
+                }
+            }
+        }
+    }
+}
+
+
+
+/* 
+    Find the minimum column position of an object.
+    Return :
+        integer ==> minimum column position
+ */
+int find_min_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int min_column = INT32_MAX;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( w < min_column){
+                    min_column = w;
+                } 
+            }
+        }
+    }
+    return min_column;
+}
+
+
+/* 
+    Find the maximum column position of an object.
+    Return :
+        integer ==> maximum column position
+ */
+int find_max_column(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int max_column = 0;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( w > max_column){
+                    max_column = w;
+                } 
+            }
+        }
+    }
+    return max_column;
+}
+
+
+/* 
+    Find the minimum row position of an object.
+    Return :
+        integer ==> minimum row position
+ */
+int find_min_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int min_row = INT32_MAX;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( h < min_row){
+                    min_row = h;
+                } 
+            }
+        }
+    }
+    return min_row;
+}
+
+
+/* 
+    Find the maximum row position of an object.
+    Return :
+        integer ==> maximum row position
+ */
+int find_max_row(struct pixel *pixels, int height, int width, struct pixel search_for_pixel){
+    int max_row = 0;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if( compare_two_pixels( pixels[h*width+w], search_for_pixel) ){
+                if( h > max_row){
+                    max_row = h;
+                } 
+            }
+        }
+    }
+    return max_row;
+}
+
+
+/* 
+    Determining edge positions of the bounding box that is going to draw around an object.
+    after find the 4 edges of the bouding box we basically draw the bouding box.
+    2 pixel space is added to every edge to prevent colliding bounding box with object.
+ */
+void find_poisition_for_bounding_box(struct pixel *pixels, int height, int width, struct pixel search_for_pixel, struct pixel bounding_box_color){
+    // give 2 pixel space for every bounding box of each object to prevent colliding bounding box with object itself.
+    int min_column = find_min_column(pixels, height, width, search_for_pixel) - 2; 
+    int max_column = find_max_column(pixels, height, width, search_for_pixel) + 2;
+    int min_row = find_min_row(pixels, height, width, search_for_pixel) - 2;
+    int max_row = find_max_row(pixels, height, width, search_for_pixel) + 2;
+    draw_bounding_box(pixels, height, width, min_column, max_column, min_row, max_row, bounding_box_color);
+}
+
+
+/* 
+    draw bounding box around detected objects inside image.
+    first loop over the image data and find the detected object(after labeling image every object is assigned different colores ) 
+    then add detected objects to a list that is created using linked list algorhim. loop over every object inside that list and draw bounding box
+    for every and each of the objects.
+
+ */
+void bounding_box(struct Image *img){
+    int height = img->height;
+    int width = img->width;
+    struct pixel bounding_box_color = {255, 255, 255}; // bounding box color = white, we don't want to bouding box around another bounding box if user want to draw bounding box on image that is already bounded
+    struct pixel_node *head = NULL; // initial the single list
+
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
+                add_if_not_exists(&head, img->pixels[h*width+w]);
+            }
+        }
+    }
+    extern int Number_of_Nodes;
+    int node_number = Number_of_Nodes;
+    printf("%d Objects found inside image\n", node_number);
+    printf("It might take some time to draw bouding box. Please be patient.\n");
+    for(int i=0; i < node_number ; i++){
+        struct pixel *search_for_pixel = get_node_pixel(head, i);
+        find_poisition_for_bounding_box(img->pixels, height, width, *search_for_pixel, bounding_box_color);
+    }
+   
+    free_all(&head);
+    printf("Boudning Box Has Been Drawn Successfully.\n");
+}
+
+
+
+/* 
+    Calculate mean values for every object detected and ask users if they want to save means and objects to
+    database
+
+ */
+void feature_extraction(struct Image *img, uint8_t matching_check){
+    int height = img->height;
+    int width = img->width;
+    struct pixel bounding_box_color = {255, 255, 255}; // we don't want to extract feature for bounding boxes.
+    const uint8_t PHI_Num = 7;
+    struct pixel_node *head = NULL;
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(img->pixels[h*width+w]) && compare_two_pixels(img->pixels[h*width+w], bounding_box_color)==0 ){
+                add_if_not_exists(&head, img->pixels[h*width+w]);
+            }
+        }
+    }
+
+    extern int Number_of_Nodes;
+    int node_number = Number_of_Nodes;
+    struct Moments objs_moment[node_number];
+    struct Moments *total_objects_moment[node_number];
+    double average_moments[node_number];
+    printf("%d Objects found inside image\n", node_number);
+    printf("Featrue extraction might take some time. Please be patient.\n");
+
+    for(int i=0; i < Number_of_Nodes ; i++){
+        struct pixel *search_for_pixel = get_node_pixel(head, i);
+        objs_moment[i].height = height;
+        objs_moment[i].width = width;
+        copy_pixel_value(&(objs_moment[i].search_pixel), search_for_pixel);
+        objs_moment[i].pixels_array = img->pixels;
+        calculate_invariant_moments(objs_moment+i);
+        total_objects_moment[i] = objs_moment + i;
+        if(matching_check)
+            average_moments[i] = average_invariant_moment(objs_moment+i);
+        
+        printf("%d. object moments vlaue:\n", i);
+        print_final_moments(objs_moment+i);
+        printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
+        printf("--------------------------------------------------------------------\n");
+    }
+
+    if(matching_check == 0){
+        double final_PHIS[PHI_Num];
+        double average_PHIS=0;
+        for(int i=0; i < PHI_Num ; i++){
+            for(int j=0; j < node_number; j++){
+                final_PHIS[i] += total_objects_moment[j]->invariant_moments[i];
+            }
+        }
+        for(int i=0; i < PHI_Num; i++){
+            final_PHIS[i] = final_PHIS[i] / node_number;
+            average_PHIS += final_PHIS[i];
+            printf("Final PHI %d: %lf\n", i, final_PHIS[i]);
+        }
+        save_to_databbase(average_PHIS/PHI_Num, node_number);
+    }
+    else{
+        char *detected_obj_name;
+        for(int i=0; i < node_number; i++){
+            detected_obj_name = minimum_distance_obj_detection(average_moments[i]);
+            printf("\nObject %d is a(n) '%s'\n", i, detected_obj_name);
+        }
+    }
+   
+    free_all(&head);
+}
+
+
+
+void save_to_databbase(double average_moments, int node_number){
+    int ch;
+    printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", node_number);
+    printf("Would you like to save the means inside database?(y/n) ");
+    scanf("%c", &ch);
+    while( (getchar()) != '\n');
+
+    if( ch == 121 || ch == 89 ){    // 89 and 121 are equvalent decimal value for 'Y' and 'y' characters.
+        // int choise;
+        // printf("How Do You Want To Save This Valuse?\n");
+        // printf("1 - Save All Automatically Under a General Name.(all values are going to be saved to database under same name but different ID's)\n");
+        // printf("2 - Explicitly Specify Names For Every Object\n");
+        // scanf("%d", &choise);
+        // while( (getchar()) != '\n');
+
+        // if(choise == 1){
+        char name[50];
+        printf("\nEnter The General Name For Objects: ");
+        scanf("%50[^\n]", name);
+        while( (getchar()) != '\n');
+        int starting_id = find_biggest_id();
+        printf("%d\n", starting_id);
+        // for(int i=0; i<node_number; i++){
+        append_auto(starting_id , name, average_moments);
+        // }
+        // }
+        // if(choise == 2){
+        //     int starting_id = find_biggest_id();
+        //     for(int i=0; i<node_number; i++){
+        //         char name[50];
+        //         printf("Enter Name For %d Object: ",i);
+        //         scanf("%50[^\n]", name);
+        //         while( (getchar()) != '\n');
+        //         append_auto(starting_id+i, name, average_moments[i]);
+        //     }
+        // }
+    }
+}
+
+
+void check_matching(struct Image *img){
+    uint8_t mathcing_check = 1;
+    convert_to_gray(img);
+    convert_to_binary_kmeans(*img);
+    // morphology(img);
+    labeling(img);
+    feature_extraction(img, mathcing_check);
+
+}
+
+
+// function that is used to pring errors
+void error(char *message){
+    fprintf(stderr, "[Error] %s", message);
+}
+
+int check_null(void *ptr, char *message){
+    if(ptr == NULL){
+        error(message);
+        return -1;
+    }
+    return 0;
+}
+
+
+// calculate distance between tow number. this function is used while calculating binary image in kmeans algorithm
+double distant(double num1, double num2){
+    double result = (num1 - num2) * (num1 - num2);
+    result = sqrt(result);
+    return result;
+}
+
+
+
+double calculate_moment(struct Moments *obj, double power_p, double power_q){
+    double moment = 0;
+    int height = obj->height;
+    int width = obj->width;
+    
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(obj->pixels_array[h*width+w])){
+                if(compare_two_pixels((obj->pixels_array[h*width+w]), obj->search_pixel)){
+                    moment += pow(h, power_p) * pow(w, power_q);
+                }
+            }
+        }
+    }
+    return moment;
+}
+
+
+void calculate_central_row_column(struct Moments *obj){
+    obj->central_row = calculate_moment(obj, 1, 0) /  calculate_moment(obj, 0, 0);
+    obj->central_column = calculate_moment(obj, 0, 1) /  calculate_moment(obj, 0, 0);
+}
+
+
+double calculate_central_moment(struct Moments *obj, double power_p, double power_q){
+    double central_moment = 0;
+    int height = obj->height;
+    int width = obj->width;
+
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            if(not_background(obj->pixels_array[h*width+w])){
+                if(compare_two_pixels((obj->pixels_array[h*width+w]), obj->search_pixel)){
+                    central_moment += pow((h - obj->central_row), power_p) * pow((w - obj->central_column), power_q);
+                }
+            }
+        }
+    }
+    return central_moment;
+}
+
+double calculate_normalized_moment(struct Moments *obj, double power_p, double power_q){
+    double tmp = (power_p + power_q) / 2 + 1;
+    double normalized_moment = calculate_central_moment(obj, power_p, power_q) / pow(calculate_central_moment(obj, 0, 0), tmp);
+    return normalized_moment;
+}
+
+
+void calculate_invariant_moments(struct Moments *obj){
+    calculate_central_row_column(obj);
+
+     obj->invariant_moments[0] = calculate_normalized_moment(obj, 2, 0) 
+
+                        + calculate_normalized_moment(obj, 0, 2);
+
+
+    obj->invariant_moments[1] = pow( (calculate_normalized_moment(obj, 2, 0) - calculate_normalized_moment(obj, 0, 2) ), 2) 
+
+                        + 4 * ( pow(calculate_normalized_moment(obj, 1, 1), 2) );
+
+
+    obj->invariant_moments[2] = pow( ( calculate_normalized_moment(obj, 3, 0) - 3 * calculate_normalized_moment(obj, 1, 2) ) , 2)
+
+                        + pow( ( 3 * calculate_normalized_moment(obj, 2, 1) - calculate_normalized_moment(obj, 0, 3) ) , 2);
+
+
+    obj->invariant_moments[3] = pow( (calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2) ), 2) 
+
+                        + pow( (calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3) ), 2);
+
+
+    obj->invariant_moments[4] = ( calculate_normalized_moment(obj, 3, 0) - 3 * calculate_normalized_moment(obj, 1, 2) ) 
+
+                        * ( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2) ) 
+
+                        * ( pow(calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2), 2) 
+
+                        - 3 * pow(calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3), 2) ) 
+
+                        + ( 3 * calculate_normalized_moment(obj, 2, 1) - calculate_normalized_moment(obj, 0, 3) ) 
+
+                        * ( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3) )
+
+                        * ( 3 * pow( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2), 2)
+
+                        - pow( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3), 2) );
+
+    
+    obj->invariant_moments[5] = ( calculate_normalized_moment(obj, 2, 0) - calculate_normalized_moment(obj, 0, 2) ) 
+
+                        * ( pow( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2), 2) 
+
+                        - pow( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3), 2) )
+
+                        + ( 4 * calculate_normalized_moment(obj, 1, 1) 
+
+                        * ( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2) ) 
+
+                        * ( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3) ) );
+
+
+    obj->invariant_moments[6] = ( 3 * calculate_normalized_moment(obj, 2, 1) - calculate_normalized_moment(obj, 0, 3) ) 
+
+                        * ( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2) ) 
+
+                        * ( pow( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2), 2)
+
+                        - 3 * pow( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3), 2) ) 
+
+                        - ( calculate_normalized_moment(obj, 3, 0) - 3 * calculate_normalized_moment(obj, 1, 2) ) 
+
+                        * ( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3) ) 
+
+                        * ( 3 * pow( calculate_normalized_moment(obj, 3, 0) + calculate_normalized_moment(obj, 1, 2), 2) 
+
+                        - pow( calculate_normalized_moment(obj, 2, 1) + calculate_normalized_moment(obj, 0, 3), 2) );
+}
+
+
+double *get_finall_moments(struct Moments *obj){
+    return obj->invariant_moments;
+}
+
+void print_final_moments(struct Moments *obj){
+    for(int item=0; item < 7; item ++){
+        printf("\tPHI%d: %lf\n",item+1, obj->invariant_moments[item]);
+    }
+}
+
+
+double average_invariant_moment(struct Moments *obj){
+    double average = 0;
+    for(int item=0; item < 7; item ++){
+        average += obj->invariant_moments[item];
+    }
+    average = average / 7;
+    return average;
+}
+
+
+
+// setting pixel to gray, calculating mean of red, green and blue values by adding them together and then deviding total by 3
+// set all pixel values to calculated mean(gray value).
+void rgb_to_gray(struct pixel *pix){
+    uint8_t gray = (pix->red + pix->green + pix->blue)/3;
+    set_pixel_value(pix, gray, gray, gray);
+}
+
+
+// return total pixel value by adding red, green and blue values,
+uint16_t get_total_pixel_value(struct pixel pix){
+    return (pix.red + pix.green + pix.blue);
+}
+
+
+// Set a pixel red, green and blue values to specified values
+void set_pixel_value(struct pixel *pix, uint8_t red, uint8_t green, uint8_t blue){
+    pix->red = red;
+    pix->green = green;
+    pix->blue = blue;
+}
+
+
+// Set a pixel red, green and blue values to random values
+void set_random_rgb(struct pixel *pix){
+    pix->red = ((rand()% 255 + rand()%75 ) % 255);
+    pix->green = ((rand()% 255 + rand()%75 ) % 255);
+    pix->blue = ((rand()% 255 + rand()%75 ) % 255);
+}
+
+
+// Copy red, green and blue values one pixel to other (pix2 to pix1)
+void copy_pixel_value(struct pixel *pix1, struct pixel *pix2){
+    pix1->red = pix2->red;
+    pix1->green = pix2->green;
+    pix1->blue = pix2->blue;
+}
+
+
+// compare two pixels by comparing their red, green and blue values. return 1 if they are all equal, otherwise return 0
+int compare_two_pixels(struct pixel pix1, struct pixel pix2){
+    if( pix1.red == pix2.red && pix1.green == pix2.green && pix1.blue == pix2.blue){
+        return 1;
+    }
+    return 0;
+  
+}
+
+
+// chech if a pixel's red, green and blue value is equal to 0 ( 0 specify the background in our programm).
+// return 1 if it is not background pixel otherwise return 0
+int not_background(struct pixel pix){
+    uint16_t background_value = 0; 
+    if(get_total_pixel_value(pix) != background_value){
+        return 1;
+    }
+    return 0;
+}
+
+
+
+
+int check_part(struct pixel *pixes, int *structing_image, int width, int structing_image_height, int structing_image_width){
+    int total=0;
+    int multipy_result=0;
+    for(int h=0; h<structing_image_height; h++){
+        for(int w=0; w<structing_image_width; w++){
+            multipy_result = get_total_pixel_value(pixes[h*width+w]) * structing_image[h*structing_image_width+w];
+            if(multipy_result != 0){
+                total +=1;
+            }
+        }
+    }
+    return total;
+}
+
+
+void erision(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *new_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(new_pixes, 0, sizeof(struct pixel)*height*width);
+    for(int h=1; h<height-1; h++){
+        for(int w=1; w<width-1; w++){
+            int result = check_part(pixes+(h-1)*width+(w-1), structing_image, width, structing_img_height, structing_img_width);
+            if(result == 9){
+                set_pixel_value( (new_pixes+h*width+w), 255, 255, 255);
+            }
+        }
+    }
+    for(int h=1; h<height-1; h++){
+        for(int w=1; w<width-1; w++){
+            copy_pixel_value( (pixes+h*width+w), (new_pixes+h*width+w) );   
+        }
+    }
+    free(new_pixes);
+}
+
+void dilation(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *new_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(new_pixes, 0, sizeof(struct pixel)*height*width);
+    for(int h=1; h<height-1; h++){
+        for(int w=1; w<width-1; w++){
+            int result = check_part(pixes+(h-1)*width+(w-1), structing_image, width, structing_img_height, structing_img_width);
+            if(result != 0){
+                set_pixel_value( (new_pixes+h*width+w), 255, 255, 255 );
+            }
+            
+        }
+    }
+    for(int h=1; h<height-1; h++){
+        for(int w=1; w<width-1; w++){
+            copy_pixel_value( (pixes+h*width+w), (new_pixes+h*width+w) );   
+        }
+    }
+    free(new_pixes);
+}
+
+
+void boundary_extraction(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *boundry_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(boundry_pixes, 0, sizeof(struct pixel)*height*width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            copy_pixel_value((boundry_pixes+h*width+w), (pixes+h*width+w));   
+        }
+    }
+
+    erision(boundry_pixes, structing_image, height, width, structing_img_height, structing_img_width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(compare_two_pixels(pixes[h*width+w], boundry_pixes[h*width+w]))
+                set_pixel_value(pixes+h*width+w, 0, 0, 0);
+        }
+    }
+
+    free(boundry_pixes);
+}
+
+
+void region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *compliment_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(compliment_pixes, 0, sizeof(struct pixel)*height*width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(get_total_pixel_value(pixes[h*width+w]) == 0)
+                set_pixel_value( (compliment_pixes+h*width+w), 255, 255, 255);
+        }
+    }
+
+    struct pixel *new_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            copy_pixel_value((new_pixes+h*width+w), (pixes+h*width+w));   
+        }
+    }
+
+    for(int h=1; h<height-1; h++){
+        for(int w=1; w<width-1; w++){
+            int result = check_part(pixes+(h-1)*width+(w-1), structing_image, width, structing_img_height, structing_img_width);
+            if(result != 0){
+                set_pixel_value( (new_pixes+h*width+w), 255, 255, 255 );
+            }
+            if(compare_two_pixels(new_pixes[h*width+w], compliment_pixes[h*width+w]) == 0){
+                set_pixel_value( (new_pixes+h*width+w), 0, 0, 0 );
+            }
+            
+        }
+    }
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(get_total_pixel_value(new_pixes[h*width+w])!=0 || get_total_pixel_value(pixes[h*width+w])!=0 ){
+                set_pixel_value(pixes+h*width+w, 255, 255, 255);
+            }
+        }
+    }
+
+
+    // for(int h=0; h<height; h++){
+    //     for(int w=0; w<width; w++){
+    //         copy_pixel_value((pixes+h*width+w), (new_pixes+h*width+w));   
+    //     }
+    // }
+
+    free(compliment_pixes);
+    free(new_pixes);
+
+        
+}
+
+void kinda_region_filling(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    struct pixel *tmp_pixes = (struct pixel *)malloc(sizeof(struct pixel) * height * width);
+    memset(tmp_pixes, 0, sizeof(struct pixel)*height*width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(not_background(pixes[h*width+w]) == 1)
+                set_pixel_value( (tmp_pixes+h*width+w), 255, 255, 255);
+        }
+    }
+
+    boundary_extraction(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+
+    for(int h=0; h<height; h++){
+        for(int w=0; w<width; w++){
+            if(not_background(tmp_pixes[h*width+w]) || not_background(pixes[h*width+w]) ){
+                set_pixel_value(pixes+h*width+w, 255, 255, 255);
+            }
+        }
+    }
+
+}
+
+
+void opening(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    erision(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+}
+
+
+void closing(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    erision(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+}
+
+
+int Number_of_Nodes = 0;
+
+
+// check if list is empty
+int is_empty_list(struct pixel_node *head){
+    if (head == NULL){
+        return 1;
+    }
+    return 0;
+}
+
+
+// push new value to list
+void push(struct pixel_node **head, struct pixel pix){
+    struct pixel_node *new_node = (struct pixel_node *)malloc(sizeof(struct pixel_node));
+    copy_pixel_value(&new_node->pix, &pix);
+    new_node->next = *head;
+    *head = new_node;
+    Number_of_Nodes += 1;
+}
+
+
+// print list if is not empty
+void print_list(struct pixel_node *head){
+    if(is_empty_list(head)){
+        printf("List is empty!!!\n");
+    }
+    else{
+        struct pixel_node *first = (head);
+        while(first != NULL){
+            printf("red: %d, green: %d, blue: %d\n", first->pix.red, first->pix.green, first->pix.blue);
+            first = first->next;
+        }
+    }
+}
+
+
+// add a new node to list but first it checks if the new value is already exits in list and if it does not then it is going to add it.
+void add_if_not_exists(struct pixel_node **head, struct pixel pix){
+    struct pixel_node *first = *head;
+    int exists = 0;
+    while (first != NULL){
+        exists = compare_two_pixels(first->pix , pix);
+        if(exists){
+            break;
+        }
+        first = first->next;
+    }
+    if(exists == 0 ){
+        push(head, pix);
+    }
+}
+
+
+// free the memory that was allocated to every node of the list.
+void free_all(struct pixel_node **head){
+    Number_of_Nodes = 0;
+    if(is_empty_list(*head)){
+        printf("All clear.\n");
+    }
+    else{
+        struct pixel_node *tmp = (*head);
+        while ( tmp != NULL ){
+            (*head) = (*head)->next;
+            free(tmp);
+            tmp = (*head);
+        }
+        
+    }
+}
+
+
+// get the 'i'th index node inside the list, this return a pointer to that node(pixel).
+struct pixel *get_node_pixel(struct pixel_node *head, int i){
+    if(i < Number_of_Nodes){
+        struct pixel_node *tmp = head;
+        while(i != 0){
+            tmp = tmp->next;
+            i--;
+        }
+        if(tmp!=NULL){
+            return &(tmp->pix);
+        }
+    }
+    else{
+        return NULL;
+    }
+}
+
+
+// name of database file
+char database_name[]={"mydb.dat"};
+
+
+// main function that is used to interact with user when they want to connect to database
+int main_database_operations(){
+    int choise;
+
+    while(1){
+        system("clear");
+
+        printf("==================object Management System=============\n\n");
+
+        printf("1. Append\n\n");
+        printf("2. Modify\n\n");
+        printf("3. Delete\n\n");
+        printf("4. Search\n\n");
+        printf("5. Display\n\n");
+        printf("6. Display All\n\n");
+        printf("7. Rename\n\n");
+        printf("8. Delete File\n\n");
+        printf("0. Exit\n\n");
+
+        printf("========================================================\n\n");
+
+        printf("\nPlease enter your Choice:");
+        scanf("%d",&choise);
+
+        switch(choise){
+            case 1: append();
+            break;
+
+            case 2: modify();
+            break;
+
+            case 3: del();
+            break;
+
+            case 4: search();
+            break;
+
+            case 5: display();
+            break;
+
+            case 6: displayAll();
+            break;
+
+            case 7: rname();
+            break;
+
+            case 8: rremove();
+            break;
+
+            case 0: exit(0);
+        }
+
+        mygetch();
+    }
+    return 0;
+}
+
+
+// append new entity to database
+void append(){
+    FILE *fp;
+    struct obj object;
+
+    fp=fopen(database_name,"ab");
+
+    printf("\nEnter ID:");
+    scanf("%d",&object.id);
+    printf("\nEnter name:");
+    scanf("%s",object.name);
+    printf("\nEnter mean:");
+    scanf("%lf",&object.mean);
+    fwrite(&object,sizeof(object),1,fp);
+
+    fclose(fp);
+}
+
+
+// rename the database file
+void rname(){
+    char name[20];
+
+    printf("\nEnter the New File Name:");
+    while( (getchar()) != '\n');
+    scanf("%[^\n]",name);
+
+    rename(database_name,name);
+    strcpy(database_name,name);
+}
+
+
+// remove database file. when user call this function we first ask them if they want to take a backup.
+void rremove(){
+    FILE *fp,*fp1;
+    struct obj t;
+
+    char name[20];
+    char val[20];
+
+    printf("\nDo you want to make copy of it (Y/N):");
+    scanf("%s",val);
+
+    if(strcmp(val,"Y")==0){
+        printf("\nEnter the New File Name:");
+        while( (getchar()) != '\n');
+        scanf("%[^\n]",name);
+
+        fp=fopen(name,"wb");
+        fp1=fopen(database_name,"rb");
+
+        while(1){
+            fread(&t,sizeof(t),1,fp1);
+
+            if(feof(fp1)){
+                break;
+            }
+            fwrite(&t,sizeof(t),1,fp);
+        }
+
+        fclose(fp);
+        fclose(fp1);
+
+        remove(database_name);
+
+        strcpy(database_name,name);
+    }
+    else{
+        remove(database_name);
+    }
+}
+
+
+// modify an entity inside database. find the entity using its id number.
+void modify(){
+    FILE *fp,*fp1;
+    struct obj t,object;
+    int id,found=0,count=0;
+
+    fp=fopen(database_name,"rb");
+    fp1=fopen("temp.dat","wb");
+
+    printf("\nEnter the obj ID you want to Modify:");
+    scanf("%d",&id);
+
+    while(1){
+        fread(&t,sizeof(t),1,fp);
+
+        if(feof(fp)){
+            break;
+        }
+        if(t.id==id){
+            found=1;
+            printf("\nEnter object ID:");
+            scanf("%d",&t.id);
+            while( (getchar()) != '\n');
+
+            printf("\nEnter object Name:");
+            scanf("%s",t.name);
+            printf("\nEnter object mean:");
+            scanf("%lf",&t.mean);
+            fwrite(&t,sizeof(t),1,fp1);
+        }
+        else{
+            fwrite(&t,sizeof(t),1,fp1);
+        }
+    }
+    fclose(fp);
+    fclose(fp1);
+
+    if(found==0){
+        printf("Sorry No Record Found\n\n");
+    }
+    else{
+        fp=fopen(database_name,"wb");
+        fp1=fopen("temp.dat","rb");
+
+        while(1){
+            fread(&t,sizeof(t),1,fp1);
+
+            if(feof(fp1)){
+                break;
+            }
+            fwrite(&t,sizeof(t),1,fp);
+        }
+
+    }
+    fclose(fp);
+    fclose(fp1);
+}
+
+
+// delete an entity using its id.
+void del()
+{
+    FILE *fp,*fp1;
+    struct obj t,object;
+    int id,found=0,count=0;
+
+    fp=fopen(database_name,"rb");
+    fp1=fopen("temp.dat","wb");
+
+    printf("\nEnter the obj ID you want to Delete:");
+    scanf("%d",&id);
+
+    while(1){
+        fread(&t,sizeof(t),1,fp);
+
+        if(feof(fp)){
+            break;
+        }
+        if(t.id==id){
+            found=1;
+        }
+        else{
+            fwrite(&t,sizeof(t),1,fp1);
+        }
+    }
+    fclose(fp);
+    fclose(fp1);
+
+    if(found==0){
+        printf("Sorry No Record Found\n\n");
+    }
+    else{
+        fp=fopen(database_name,"wb");
+        fp1=fopen("temp.dat","rb");
+        while(1){
+            fread(&t,sizeof(t),1,fp1);
+
+            if(feof(fp1)){
+                break;
+            }
+            fwrite(&t,sizeof(t),1,fp);
+        }
+    }
+    fclose(fp);
+    fclose(fp1);
+}
+
+
+// display an entity to screen.
+void display(){
+    FILE *fp;
+    struct obj t;
+    int id,found=0;
+
+    fp=fopen(database_name,"rb");
+
+    printf("\nEnter the obj ID:");
+    scanf("%d",&id);
+
+    while(1){
+        fread(&t,sizeof(t),1,fp);
+
+        if(feof(fp)){
+            break;
+        }
+        if(t.id==id){
+            found=1;
+            printf("\n========================================================\n\n");
+            printf("\t\t object Details of %d\n\n",t.id);
+            printf("========================================================\n\n");
+
+            printf("Name\tmean\n\n");
+
+            printf("%s\t",t.name);
+            printf("%lf\t\n\n",t.mean);
+
+            printf("========================================================\n\n");
+        }
+    }
+    if(found==0){
+        printf("\nSorry No Record Found");
+    }
+    fclose(fp);
+}
+
+
+// it display an entity, by searching it name inside databas.
+void search(){
+    FILE *fp;
+    struct obj t;
+    int found=0;
+    char name[20];
+
+    fp=fopen(database_name,"rb");
+
+    printf("\nEnter the object Name:");
+    scanf("%s",&name);
+
+    while(1){
+        fread(&t,sizeof(t),1,fp);
+
+        if(feof(fp)){
+            break;
+        }
+        if(strcmp(name,t.name)==0){
+            printf("\n========================================================\n\n");
+            printf("\t\t object Details of %d\n\n",t.id);
+            printf("========================================================\n\n");
+
+            printf("Name\tmean\n\n");
+
+            printf("%s\t",t.name);
+            printf("%lf\t\n\n",t.mean);
+
+            printf("========================================================\n\n");
+        }
+    }
+    if(found==0){
+        printf("\nSorry No Record Found");
+    }
+    fclose(fp);
+}
+
+
+// display all entities inside database
+void displayAll(){
+    FILE *fp;
+    struct obj t;
+
+    fp=fopen(database_name,"rb");
+
+    printf("\n========================================================\n\n");
+    printf("\t\t All object Details\n\n");
+    printf("========================================================\n\n");
+
+    printf("ID\tName\tmean\n\n");
+
+    while(1){
+        fread(&t,sizeof(t),1,fp);
+
+        if(feof(fp)){
+            break;
+        }
+        printf("%d\t",t.id);
+        printf("%s\t",t.name);
+        printf("%lf\t\n\n",t.mean);
+
+    }
+    printf("========================================================\n\n");
+
+    fclose(fp);
+}
+
+
+// find the biggest id by going through each entity and return biggest id of entitys. otherwise returns -1
+int find_biggest_id(){
+    FILE *fp = fopen(database_name, "rb");
+    int biggest_id = -1;
+    struct obj temp;
+
+    while(1){
+        fread(&temp, sizeof(struct obj), 1, fp);
+        if(feof(fp)){
+            break;
+        }
+        biggest_id = temp.id;
+    }
+    fclose(fp);
+    return (biggest_id + 1);
+}
+
+
+// append an entity. this is used inside program where there is no direct interact between user and database
+void append_auto(int id, char name[50], double mean){
+    struct obj object;
+    object.id = id;
+    strncpy(object.name, name, 50);
+    object.mean = mean;
+
+    FILE *fp;
+    fp = fopen(database_name,"ab");
+    fwrite(&object,sizeof(object),1,fp);
+    fclose(fp);
+}
+
+
+char *minimum_distance_obj_detection(double mean){
+    FILE *fp = fopen(database_name, "rb");
+    struct obj entity;
+    char *name;
+    double minimum_distance = __DBL_MAX__;
+    while(1){
+        fread(&entity, sizeof(entity), 1, fp);
+        if( feof(fp)){
+            break;
+        }
+        double dist = distant(mean, entity.mean);
+        if(dist < minimum_distance){
+            minimum_distance = dist;
+            name = entity.name;
+        }
+
+    }
+    // if database is empty
+    if(minimum_distance==__DBL_MAX__){
+        return "DID NOT FIND A MATCH";
+    }
+    else{
+        return name;
+    }
+}
+
+
+char mygetch(){
+    char val;
+    char rel;
+
+    scanf("%c",&val);
+    scanf("%c",&rel);
+    return (val);
+}

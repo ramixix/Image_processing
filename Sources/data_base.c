@@ -1,5 +1,6 @@
 
 #include "../Includes/data_base.h"
+#include "../Includes/utils.h"
 
 // name of database file
 char database_name[]={"mydb.dat"};
@@ -380,6 +381,38 @@ void append_auto(int id, char name[50], double mean){
     fwrite(&object,sizeof(object),1,fp);
     fclose(fp);
 }
+
+
+char *minimum_distance_obj_detection(double mean){
+    FILE *fp = fopen(database_name, "rb");
+    struct obj entity;
+    char *name;
+    double minimum_distance = __DBL_MAX__;
+    while(1){
+        fread(&entity, sizeof(entity), 1, fp);
+        if( feof(fp)){
+            break;
+        }
+
+        double dist = distant(mean, entity.mean);
+        if(dist < minimum_distance){
+            printf("%lf, %s\n", dist , entity.name);
+            minimum_distance = dist;
+            name = entity.name;
+        }
+
+    }
+    // if database is empty
+    if(minimum_distance ==__DBL_MAX__){
+        return "DID NOT FIND A MATCH";
+    }
+    else{
+        printf("returned name motherfather: %s\n ", name);
+        return name;
+    }
+    fclose(fp);
+}
+
 
 char mygetch(){
     char val;
