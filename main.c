@@ -33,7 +33,7 @@ int main(int arg_count, char *arg_list[]){
     // start asking user what they want to do with opened image
     if(is_valid != -1){
         printf("\nImage has been Loaded What do you want to do with it?\n");
-        while(choise != 13){
+        while(choise != 14){
             printf("\n##############################-=[ Choose A Number ]=-##############################\n");
             printf("1 - Convert To Gray.\n");
             printf("2 - Convert Binary.\n");
@@ -47,13 +47,14 @@ int main(int arg_count, char *arg_list[]){
             printf("10 - Save It.\n");
             printf("11 - Reset All Changes.\n");
             printf("12 - Connect To DataBase.\n");
-            printf("13 - Quit.\n");
+            printf("13 - edge.\n");
+            printf("14 - Quit.\n");
             printf("====================================================================================\n\n");
             printf("Please Enter Your Choise: ");
             scanf("%d", &choise);
             while ((getchar()) != '\n');
 
-            if(choise < 1 || choise > 13){
+            if(choise < 1 || choise > 14){
                 printf("\n[!!!] The number %d is an invalid selection.\n\n", choise);
             }
             else if( choise == 1){
@@ -113,6 +114,10 @@ int main(int arg_count, char *arg_list[]){
 
             else if(choise == 12){
                 main_database_operations();
+            }
+
+            else if(choise == 13){
+                edge(&img);
             }
         }
     }

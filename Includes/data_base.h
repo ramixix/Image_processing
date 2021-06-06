@@ -25,7 +25,7 @@ void rname();
 void rremove();
 int find_biggest_id();
 char mygetch();
-char *minimum_distance_obj_detection(double mean);
+char *minimum_distance_obj_detection(double mean, char name[256]);
 
 
 

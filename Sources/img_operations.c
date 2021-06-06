@@ -17,6 +17,7 @@
 #include "../Includes/rst_moments.h"
 #include "../Includes/morphology.h"
 #include "../Includes/data_base.h"
+#include "../Includes/edge_detection.h"
 
 
 /* 
@@ -286,7 +287,7 @@ uint32_t *get_histogram(struct Image img){
  */
 void convert_to_binary_kmeans(struct Image img){
     double epsilon = 0.000001f;
-    double k1=150, k2=200;
+    double k1=75, k2=150;
     double next_k1, next_k2;
     double dividend_near_k1=0, dividend_near_k2=0;
     double divisor_near_k1=0, divisor_near_k2=0;
@@ -317,7 +318,12 @@ void convert_to_binary_kmeans(struct Image img){
                 divisor_near_k2 += obj_array[item];
             }
         }
-
+        
+        if(divisor_near_k1 == 0 || divisor_near_k2 == 0){
+            k1 = fmod(k1+50.0, 256);
+            k2 = fmod(k2+50.0, 256);
+            continue;
+        }
         next_k1 = dividend_near_k1 / divisor_near_k1;
         next_k2 = dividend_near_k2 / divisor_near_k2;
         
@@ -694,10 +700,10 @@ void feature_extraction(struct Image *img, uint8_t matching_check){
         if(matching_check)
             average_moments[i] = average_invariant_moment(objs_moment+i);
         
-        printf("%d. object moments vlaue:\n", i);
-        print_final_moments(objs_moment+i);
-        printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
-        printf("--------------------------------------------------------------------\n");
+        // printf("%d. object moments vlaue:\n", i);
+        // print_final_moments(objs_moment+i);
+        // printf("Average invariant moments: %lf\n", average_invariant_moment(objs_moment+i));
+        // printf("--------------------------------------------------------------------\n");
     }
 
     if(matching_check == 0){
@@ -716,10 +722,10 @@ void feature_extraction(struct Image *img, uint8_t matching_check){
         save_to_databbase(average_PHIS/PHI_Num, node_number);
     }
     else{
-        char *detected_obj_name;
+        char object_name[256];
         for(int i=0; i < node_number; i++){
-            detected_obj_name = minimum_distance_obj_detection(average_moments[i]);
-            printf("\nObject %d is a(n) '%s'\n", i, detected_obj_name);
+            minimum_distance_obj_detection(average_moments[i], object_name);
+            printf("\nObject %d is a(n) '%s'\n", i, object_name);
         }
     }
    
@@ -733,6 +739,7 @@ void save_to_databbase(double average_moments, int node_number){
     printf("\n7 Invariant Moment values and one total mean of these 7 value have been calculated for every and each of the %d objects.\n", node_number);
     printf("Would you like to save the means inside database?(y/n) ");
     scanf("%c", &ch);
+    printf("%d", ch);
     while( (getchar()) != '\n');
 
     if( ch == 121 || ch == 89 ){    // 89 and 121 are equvalent decimal value for 'Y' and 'y' characters.
@@ -771,9 +778,129 @@ void save_to_databbase(double average_moments, int node_number){
 void check_matching(struct Image *img){
     uint8_t mathcing_check = 1;
     convert_to_gray(img);
+    fprintf(stdin, "%d" , 1);
+    fprintf(stdout, "%d" , 1);
     convert_to_binary_kmeans(*img);
-    // morphology(img);
+    morphology(img);
     labeling(img);
     feature_extraction(img, mathcing_check);
 
+}
+
+
+void edge(struct Image *img){
+    const int height = img->height;
+    const int width = img->width;
+    struct pixel *pixs = img->pixels;
+
+    int16_t *input = (int16_t *)calloc(height * width, sizeof(int16_t));
+    // int16_t *Gradiant =  (int16_t *)calloc(height * width, sizeof(int16_t));
+    // int16_t *Gx = (int16_t *)calloc(height * width, sizeof(int16_t));
+    // int16_t *Gy = (int16_t *)calloc(height * width, sizeof(int16_t));
+    int16_t *output = (int16_t *)calloc(height * width, sizeof(int16_t));
+    // int16_t *Non_max_suppression = calloc(height * width, sizeof(int16_t));
+
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            input[h*width+w] = pixs[h*width+w].red;
+        }
+    }
+
+    output = canny_edge_detection(input, height, width, 50, 45);
+    // gussian_filter(input, output, height, width, 0.4);
+
+    // const float Gx_derivative[] = { -1, 0, 1,
+    //                                 -2, 0, 2,
+    //                                 -1, 0, 1};
+ 
+    // convolution(output, Gx, height, width, Gx_derivative, 3, 0);
+
+    // const float Gy_derivative[] = { 1, 2, 1,
+    //                                 0, 0, 0,
+    //                                 -1,-2,-1};
+ 
+    // convolution(output, Gy, height, width, Gy_derivative, 3,0);
+    
+    // for (int h = 1; h < height - 1; h++){
+    //     for (int w = 1; w < width - 1; w++) {
+    //         const int index = h * width + w;
+    //         int16_t value = (int16_t)hypot(Gx[index], Gy[index]);
+    //         Gradiant[index] =value;
+    //     }
+    // }
+    // min_max_normalization(Gradiant, height, width);
+    // float PI =  3.14159265358979323846264338327;
+    // for (int h = 1; h < height - 1; h++){
+    //     for (int w = 1; w < width - 1; w++) {
+    //         const int c = h * width + w;    //center
+    //         const int nn = c - width;       //north 
+    //         const int ss = c + width;       //south
+    //         const int ww = c + 1;           //west
+    //         const int ee = c - 1;           //east
+    //         const int nw = nn + 1;          //north-west
+    //         const int ne = nn - 1;          //north-east
+    //         const int sw = ss + 1;          //south-west
+    //         const int se = ss - 1;          //south-east
+ 
+
+    //         const float direction = (float)(fmod(atan2(Gy[c], Gx[c]) + PI, PI) / PI) * 8;
+    //         //    (                           0 deg                                ) || (                                   45 deg                        ) || (                                   90 deg                        ) || (                               135 deg                            )
+    //         if ( ((direction <= 1 || direction > 7) && Gradiant[c] > Gradiant[ee] && Gradiant[c] > Gradiant[ww]) || ((direction > 1 && direction <= 3) && Gradiant[c] > Gradiant[nw] && Gradiant[c] > Gradiant[se]) || ((direction > 3 && direction <= 5) && Gradiant[c] > Gradiant[nn] && Gradiant[c] > Gradiant[ss]) || ((direction > 5 && direction <= 7) && Gradiant[c] > Gradiant[ne] && Gradiant[c] > Gradiant[sw]))
+    //             Non_max_suppression[c] = Gradiant[c];
+    //         else
+    //             Non_max_suppression[c] = 0;
+    //     }
+    // }
+    // printf("he");
+      
+    // memset(output, 0, height*width*sizeof(int16_t));
+    // memset(Gx, 0, height*width*sizeof(int16_t));
+    // int *edges = (int *)Gx;
+    
+    // for(int h=1; h < height-1; h++){
+    //     for(int w=1; w < width-1; w++){
+    //         int position = h*width+w;
+    //         if(Non_max_suppression[position] >= 50 && output[position]==0){
+    //             output[position] = 255;
+    //             int Number_of_edges = 1;
+    //             edges[0] = position;
+
+    //             while(Number_of_edges > 0){
+    //                 Number_of_edges--;
+    //                 const int edge_position = edges[Number_of_edges];
+    //                 int neighbours[8];
+    //                 neighbours[0] = edge_position - width;  //nn
+    //                 neighbours[1] = edge_position + width;  //ss
+    //                 neighbours[2] = edge_position - 1;      //ee
+    //                 neighbours[3] = edge_position + 1;      //ww
+    //                 neighbours[4] = neighbours[0] - 1;      //ne
+    //                 neighbours[5] = neighbours[0] + 1;      //nw
+    //                 neighbours[6] = neighbours[1] - 1;      //se
+    //                 neighbours[7] = neighbours[1] + 1;      //sw
+
+    //                 for(int posi; posi < 8; posi++){
+    //                     if(Non_max_suppression[neighbours[posi]] >= 45 && output[neighbours[posi]] ==0 ){
+    //                         output[neighbours[posi]] = 255;
+    //                         edges[Number_of_edges] = neighbours[posi];
+    //                         Number_of_edges++;
+    //                     }
+    //                 }
+
+    //             }
+    //         }
+    //     }
+    // }
+    
+    for(int h=0; h < height; h++){
+        for(int w=0; w < width; w++){
+            uint8_t value = output[h*width+w];
+            set_pixel_value(pixs+h*width+w, value, value, value);
+        }
+    }
+    
+    // free(Gx);
+    // free(Gy);
+    // free(Gradiant);
+    // free(Non_max_suppression);
+    free(output);
 }

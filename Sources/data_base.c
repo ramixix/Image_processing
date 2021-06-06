@@ -383,10 +383,9 @@ void append_auto(int id, char name[50], double mean){
 }
 
 
-char *minimum_distance_obj_detection(double mean){
+char *minimum_distance_obj_detection(double mean, char name[256]){
     FILE *fp = fopen(database_name, "rb");
     struct obj entity;
-    char *name;
     double minimum_distance = __DBL_MAX__;
     while(1){
         fread(&entity, sizeof(entity), 1, fp);
@@ -396,21 +395,21 @@ char *minimum_distance_obj_detection(double mean){
 
         double dist = distant(mean, entity.mean);
         if(dist < minimum_distance){
-            printf("%lf, %s\n", dist , entity.name);
             minimum_distance = dist;
-            name = entity.name;
+            strncpy(name, entity.name, 255);
         }
 
     }
     // if database is empty
     if(minimum_distance ==__DBL_MAX__){
-        return "DID NOT FIND A MATCH";
-    }
-    else{
-        printf("returned name motherfather: %s\n ", name);
+        fclose(fp);
+        strncpy(name, "No match (either your database is empty or you ruin the code)", 62);
         return name;
     }
-    fclose(fp);
+    else{
+        fclose(fp);
+        return name;
+    }
 }
 
 

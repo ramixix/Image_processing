@@ -41,5 +41,6 @@ void feature_extraction(struct Image *img, uint8_t matching_check);
 void morphology(struct Image *img);
 void save_to_databbase(double average_moments, int Number_of_nodes);
 void check_matching(struct Image *img);
+void edge(struct Image *img);
 
 #endif

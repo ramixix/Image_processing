@@ -163,8 +163,8 @@ void kinda_region_filling(struct pixel *pixes, int *structing_image, int height,
 
 
 void opening(struct pixel *pixes, int *structing_image, int height, int width, int structing_img_height, int structing_img_width){
-    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
     erision(pixes, structing_image, height, width, structing_img_height, structing_img_width);
+    dilation(pixes, structing_image, height, width, structing_img_height, structing_img_width);
 }
 
 
