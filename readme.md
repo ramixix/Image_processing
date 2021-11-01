@@ -15,12 +15,16 @@ while we reading BMP images, according to header structure we do extract some in
 ---
 
 ### 2. Convert To Gray :
-Converting and BMP image to gray is done by looping through every pixel, calculating mean of red, green and blue values and then set that calculated value as all three red, green and blue. We do calculate padding too. example output : ![](./readme_images/1_gray.bmp)
+Converting and BMP image to gray is done by looping through every pixel, calculating mean of red, green and blue values and then set that calculated value as all three red, green and blue. We do calculate padding too. example output : 
+
+![](./readme_images/1_gray.bmp)
 
 ---
 
 ### 3. Convert to binary :
-Binary images are **images whose pixels have only two possible intensity values**. Numerically, the two values are often 0 for black, and either 1 or 255 for white. For converting BMP image to binary we first calculate histogram of image ( the histogram of an image refers to a histogram of the pixel intensity values). Then I have used K-means Clustering method to find means and using calculated mean to assign pixels 0 or 1 values. example output : ![](./readme_images/2_binary.bmp)
+Binary images are **images whose pixels have only two possible intensity values**. Numerically, the two values are often 0 for black, and either 1 or 255 for white. For converting BMP image to binary we first calculate histogram of image ( the histogram of an image refers to a histogram of the pixel intensity values). Then I have used K-means Clustering method to find means and using calculated mean to assign pixels 0 or 1 values. example output : 
+
+![](./readme_images/2_binary.bmp)
 
 ---
 
