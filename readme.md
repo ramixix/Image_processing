@@ -90,14 +90,15 @@ note : As you can see the edges are more realizable and more clear in blur image
 
 3. After derivative image accoding to Y and X axis we use this value to calculate Gradiant image. We basically loop true all image and get Y and X value derivative at that at that position. position and use the formula square_root(X*X + Y*Y) to get the Gradinat. example output: ![](13_gradiant.bmp)
 
-4. Now we thining the wide lines make them lines that are one pixel wide. The idea here is to Compare the edge strength of the current pixel with the edge strength of the pixel in the positive and negative gradient directions. If the edge strength of the current pixel is the larger compared to the other pixels in the mask with the same direction (e.g., a pixel that is pointing in the y-direction will be compared to the pixel above and below it in the vertical axis), the value will be preserved, Otherwise, the value will be suppressed. Directions are calculated by getting inverse tangent of derivative Y to derivative X ( arcTan(Gy/Gx) ) . We call this non-maxima
-	suppression). example output : ![](./readme_images/14_Non_max_suppression.bmp)
+4. Now we thining the wide lines make them lines that are one pixel wide. The idea here is to Compare the edge strength of the current pixel with the edge strength of the pixel in the positive and negative gradient directions. If the edge strength of the current pixel is the larger compared to the other pixels in the mask with the same direction (e.g., a pixel that is pointing in the y-direction will be compared to the pixel above and below it in the vertical axis), the value will be preserved, Otherwise, the value will be suppressed. Directions are calculated by getting inverse tangent of derivative Y to derivative X ( arcTan(Gy/Gx) ) . We call this non-maxima suppression). example output :
+
+![](./readme_images/14_Non_max_suppression.bmp)
 	
 5. Last but not least we threshold the image or in other words find edges that are connected together and assign foreground value(white 255) to them. For doing this we loop over the image and look if the pixels are bigger that the
-	Tmax(a fixed value that is given by use as parameter) and any time we find a pixel that has the greater value than Tmax we assign foreground to it and add it to edges array. any entery inside the array is detected as an edge so what we do we look to every neighbours of edges and check if any neighbour is bigger than the Tmin(also fixed value that is given by use as parameter) and if we find any neighbour bigger than the Tmin we add that pixel to edges array and repeat the same operation for every entry inside the edges array until this array became empty.
-	example output : ![](./readme_images/15_Histerize.bmp)
+	Tmax(a fixed value that is given by use as parameter) and any time we find a pixel that has the greater value than Tmax we assign foreground to it and add it to edges array. any entery inside the array is detected as an edge so what we do we look to every neighbours of edges and check if any neighbour is bigger than the Tmin(also fixed value that is given by use as parameter) and if we find any neighbour bigger than the Tmin we add that pixel to edges array and repeat the same operation for every entry inside the edges array until this array became empty. example output :
 	
-	
+![](./readme_images/15_Histerize.bmp)
+		
 ---
 ---
 # How To Use and Run Program :
